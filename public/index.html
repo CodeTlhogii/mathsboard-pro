@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    
+    <!-- SEO Meta Tags -->
+    <title>MathsBoard Pro | Collaborative Whiteboard for Math Tutoring</title>
+    <meta name="description" content="Professional collaborative whiteboard for math tutoring. Real-time drawing, PDF annotation, scientific calculator, and chat. Perfect for online math education.">
+    <meta name="keywords" content="math whiteboard, online tutoring, collaborative whiteboard, math education, digital classroom, PDF annotation">
+    <meta name="author" content="MathsBoard Pro">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="MathsBoard Pro - Collaborative Math Whiteboard">
+    <meta property="og:description" content="Real-time collaborative whiteboard for math tutoring with PDF annotation, calculator, and chat.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mathsboardpro.onrender.com">
+    <meta property="og:image" content="/logo-og.png">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MathsBoard Pro">
+    <meta name="twitter:description" content="Collaborative math whiteboard for online tutoring">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Login/Join Screens */
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.8) 100%);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+        .screen.active { display: flex; }
+        
+        .landing-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo-icon {
+            font-size: 64px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            display: inline-block;
+        }
+        
+        .logo h1 {
+            font-size: 32px;
+            color: white;
+            margin-top: 10px;
+        }
+        
+        .logo p {
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 28px;
+            padding: 32px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .card input, .card button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 50px;
+            border: 1px solid rgba(0,0,0,0.1);
+            background: rgba(255,255,255,0.9);
+        }
+        .card button { background: #667eea; color: white; border: none; cursor: pointer; transition: all 0.2s; }
+        .card button:hover { background: #5a67d8; transform: scale(1.02); }
+        
+        .tabs { display: flex; gap: 12px; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 10px; border-radius: 50px; border: none; background: rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s; }
+        .tab.active { background: #667eea; color: white; }
+        .form { display: none; }
+        .form.active { display: block; }
+        .hint { font-size: 12px; color: #666; margin-top: 12px; }
+        .user-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .avatar { width: 48px; height: 48px; border-radius: 50%; }
+        .exit-btn { background: #f56565; width: auto; margin-left: auto; padding: 8px 16px; }
+        .exit-btn:hover { background: #e53e3e; }
+        .divider { margin: 16px 0; color: #999; position: relative; }
+        .divider::before, .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #ddd;
+        }
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+        
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            text-align: center;
+            z-index: 90;
+        }
+        
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .copyright {
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+        }
+        
+        .footer-links {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .footer-links a {
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 12px;
+            transition: color 0.2s;
+        }
+        
+        .footer-links a:hover {
+            color: white;
+        }
+        
+        .social-icons {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .social-icons a {
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .social-icons a:hover {
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        /* Cookie Consent */
+        .cookie-consent {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 95;
+            font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .cookie-consent button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .cookie-consent button:hover {
+            background: #5a67d8;
+        }
+        
+        .cookie-consent.hidden {
+            display: none;
+        }
+        
+        /* Main Layout (same as before) */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+            background: #1a1a2e;
+        }
+        
+        .top-bar {
+            background: rgba(15, 15, 26, 0.95);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .room-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .room-code {
+            background: rgba(15, 52, 96, 0.8);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .copy-btn, .leave-btn {
+            background: #28a745;
+            border: none;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .leave-btn { background: #f56565; }
+        
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .sidebar {
+            width: 280px;
+            background: rgba(45, 45, 58, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px;
+            overflow-y: auto;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            transition: width 0.3s ease;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .sidebar.collapsed {
+            width: 70px;
+        }
+        
+        .sidebar.collapsed .section-title span,
+        .sidebar.collapsed .tool-btn span,
+        .sidebar.collapsed .color-row,
+        .sidebar.collapsed .slider,
+        .sidebar.collapsed .size-text,
+        .sidebar.collapsed .calculator,
+        .sidebar.collapsed .pdf-bar,
+        .sidebar.collapsed .page-info {
+            display: none;
+        }
+        
+        .sidebar.collapsed .tool-btn {
+            justify-content: center;
+            padding: 12px;
+        }
+        
+        .sidebar.collapsed .tool-btn i {
+            margin: 0;
+            font-size: 20px;
+        }
+        
+        .sidebar.collapsed .section-title i {
+            font-size: 18px;
+            margin: 0 auto;
+            display: block;
+            text-align: center;
+        }
+        
+        .sidebar.collapsed .section-title {
+            text-align: center;
+            padding: 5px 0;
+        }
+        
+        .toggle-sidebar-btn {
+            position: fixed;
+            left: 280px;
+            top: 70px;
+            width: 32px;
+            height: 32px;
+            background: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+            font-size: 14px;
+            transition: left 0.3s ease;
+            z-index: 20;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            border: none;
+        }
+        
+        .toggle-sidebar-btn.collapsed {
+            left: 70px;
+        }
+        
+        .toggle-sidebar-btn:hover {
+            background: #5a67d8;
+            transform: scale(1.05);
+        }
+        
+        .section-title {
+            color: #667eea;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .color-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        
+        .color {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.5);
+            transition: all 0.2s;
+        }
+        .color:hover { transform: scale(1.05); border-color: white; }
+        .color.active { border: 3px solid #667eea; transform: scale(1.05); }
+        
+        .tool-btn {
+            background: rgba(58, 58, 74, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 25px;
+            cursor: pointer;
+            text-align: center;
+            margin: 5px 0;
+            width: 100%;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .tool-btn:hover { background: rgba(102, 126, 234, 0.8); }
+        .tool-btn.active { background: #667eea; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+        .tool-btn.danger { background: #e53e3e; }
+        .tool-btn.highlighter { background: #f59e0b; color: #333; }
+        .tool-btn.highlighter.active { background: #d97706; }
+        
+        .slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .size-text {
+            color: rgba(255,255,255,0.8);
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .calculator {
+            background: rgba(30, 30, 42, 0.8);
+            backdrop-filter: blur(5px);
+            border-radius: 12px;
+            padding: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .calc-screen {
+            background: rgba(15, 15, 26, 0.9);
+            color: #00ff00;
+            font-family: monospace;
+            font-size: 14px;
+            text-align: right;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+        }
+        .calc-key {
+            background: rgba(58, 58, 74, 0.8);
+            color: white;
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 11px;
+            border: none;
+        }
+        .calc-key.operator { background: rgba(230, 126, 34, 0.8); }
+        .calc-key.equals { background: rgba(39, 174, 96, 0.8); }
+        .calc-key.clear { background: rgba(229, 62, 62, 0.8); }
+        .copy-result { background: #667eea; grid-column: span 4; margin-top: 8px; }
+        
+        .pdf-bar {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .pdf-bar button {
+            flex: 1;
+            padding: 6px;
+            font-size: 11px;
+            background: rgba(58, 58, 74, 0.8);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .page-info {
+            color: rgba(255,255,255,0.8);
+            font-size: 11px;
+            text-align: center;
+            margin-top: 8px;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #mainCanvas {
+            width: 100%;
+            height: 100%;
+            background: white;
+            cursor: crosshair;
+            display: block;
+        }
+        
+        .chat-panel {
+            width: 280px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .chat-header {
+            padding: 12px;
+            background: rgba(247, 247, 247, 0.9);
+            font-weight: bold;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            font-size: 13px;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            background: rgba(240, 240, 240, 0.9);
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+        .message.own {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+        }
+        .message-name {
+            font-weight: bold;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+        .message-time {
+            font-size: 9px;
+            opacity: 0.7;
+            margin-left: 6px;
+        }
+        .message a { color: inherit; text-decoration: underline; }
+        .system-message {
+            background: rgba(254, 245, 231, 0.9);
+            color: #d69e2e;
+            padding: 6px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+        
+        .chat-input-area {
+            display: flex;
+            padding: 12px;
+            gap: 8px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            background: white;
+        }
+        .chat-input-area input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 25px;
+            outline: none;
+        }
+        .chat-input-area button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        i {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="screen active">
+        <div class="landing-container">
+            <div class="logo">
+                <i class="fas fa-chalkboard-teacher logo-icon"></i>
+                <h1>MathsBoard Pro</h1>
+                <p>Collaborative Whiteboard for Math Tutoring</p>
+            </div>
+            <div class="card">
+                <div class="tabs">
+                    <button id="loginTab" class="tab active"><i class="fas fa-sign-in-alt"></i> Login</button>
+                    <button id="registerTab" class="tab"><i class="fas fa-user-plus"></i> Register</button>
+                </div>
+                <div id="loginForm" class="form active">
+                    <input type="text" id="loginUser" placeholder="Username">
+                    <input type="password" id="loginPass" placeholder="Password">
+                    <button id="doLogin"><i class="fas fa-sign-in-alt"></i> Login</button>
+                    <div class="hint">demo / demo123 | student / student123</div>
+                </div>
+                <div id="registerForm" class="form">
+                    <input type="text" id="regUser" placeholder="Username">
+                    <input type="text" id="regName" placeholder="Display name">
+                    <input type="password" id="regPass" placeholder="Password">
+                    <input type="password" id="regConfirm" placeholder="Confirm">
+                    <button id="doRegister"><i class="fas fa-user-plus"></i> Register</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Join Screen -->
+    <div id="joinScreen" class="screen">
+        <div class="landing-container">
+            <div class="logo">
+                <i class="fas fa-chalkboard-teacher logo-icon"></i>
+                <h1>MathsBoard Pro</h1>
+                <p>Collaborative Whiteboard for Math Tutoring</p>
+            </div>
+            <div class="card">
+                <div class="user-row">
+                    <img id="userAvatar" class="avatar">
+                    <span id="userName"></span>
+                    <button id="logoutBtn" class="exit-btn"><i class="fas fa-sign-out-alt"></i> Exit</button>
+                </div>
+                <input type="text" id="roomCodeInput" placeholder="Enter room code">
+                <button id="joinRoomBtn"><i class="fas fa-door-open"></i> Join Room</button>
+                <div class="divider">OR</div>
+                <button id="createRoomBtn"><i class="fas fa-plus-circle"></i> Create New Room</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Board -->
+    <div id="boardScreen" class="screen">
+        <div class="app-container">
+            <div class="top-bar">
+                <div class="room-info">
+                    <i class="fas fa-chalkboard"></i>
+                    <span>Room:</span>
+                    <span id="roomIdDisplay" class="room-code"></span>
+                    <button id="copyCodeBtn" class="copy-btn"><i class="fas fa-copy"></i> Copy</button>
+                </div>
+                <button id="leaveBtn" class="leave-btn"><i class="fas fa-sign-out-alt"></i> Leave</button>
+            </div>
+            
+            <div class="main-content">
+                <div id="toggleSidebarBtn" class="toggle-sidebar-btn">
+                    <i class="fas fa-chevron-left"></i>
+                </div>
+                
+                <div class="sidebar" id="sidebar">
+                    <div>
+                        <div class="section-title"><i class="fas fa-palette"></i> <span>Colors</span></div>
+                        <div class="color-row" id="colorList">
+                            <div class="color" style="background:#ff0000" data-color="#ff0000"></div>
+                            <div class="color" style="background:#0000ff" data-color="#0000ff"></div>
+                            <div class="color" style="background:#00cc00" data-color="#00cc00"></div>
+                            <div class="color" style="background:#ffcc00" data-color="#ffcc00"></div>
+                            <div class="color" style="background:#ff6600" data-color="#ff6600"></div>
+                            <div class="color" style="background:#9933ff" data-color="#9933ff"></div>
+                            <div class="color" style="background:#000000" data-color="#000000"></div>
+                            <div class="color" style="background:#ffffff" data-color="#ffffff" style="border:1px solid #ccc;"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="section-title"><i class="fas fa-paintbrush"></i> <span>Brush Size</span></div>
+                        <input type="range" id="brushSlider" class="slider" min="2" max="40" value="5">
+                        <div id="sizeDisplay" class="size-text">Size: 5px</div>
+                    </div>
+                    
+                    <div>
+                        <div class="section-title"><i class="fas fa-tools"></i> <span>Tools</span></div>
+                        <button id="drawBtn" class="tool-btn active"><i class="fas fa-pencil-alt"></i> <span>Draw</span></button>
+                        <button id="highlighterBtn" class="tool-btn highlighter"><i class="fas fa-highlighter"></i> <span>Highlighter</span></button>
+                        <button id="eraserBtn" class="tool-btn"><i class="fas fa-eraser"></i> <span>Eraser</span></button>
+                        <button id="clearBtn" class="tool-btn danger"><i class="fas fa-trash-alt"></i> <span>Clear Board</span></button>
+                    </div>
+                    
+                    <div>
+                        <div class="section-title"><i class="fas fa-file-pdf"></i> <span>PDF</span></div>
+                        <button id="uploadPdfBtn" class="tool-btn"><i class="fas fa-upload"></i> <span>Upload PDF</span></button>
+                        <input type="file" id="pdfFile" accept=".pdf" style="display:none">
+                        <div id="pdfNav" style="display:none">
+                            <div class="pdf-bar">
+                                <button id="prevPdfBtn"><i class="fas fa-chevron-left"></i> Prev</button>
+                                <button id="nextPdfBtn">Next <i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div id="pageIndicator" class="page-info">Page 1 / 1</div>
+                        </div>
+                        <button id="removePdfBtn" class="tool-btn danger" style="margin-top:8px;"><i class="fas fa-trash-alt"></i> <span>Remove PDF</span></button>
+                    </div>
+                    
+                    <div>
+                        <div class="section-title"><i class="fas fa-calculator"></i> <span>Calculator</span></div>
+                        <div class="calculator">
+                            <div id="calcScreen" class="calc-screen">0</div>
+                            <div class="calc-grid">
+                                <button class="calc-key clear" data-action="clear">AC</button>
+                                <button class="calc-key" data-action="del">⌫</button>
+                                <button class="calc-key" data-op="(">(</button>
+                                <button class="calc-key" data-op=")">)</button>
+                                <button class="calc-key" data-num="7">7</button>
+                                <button class="calc-key" data-num="8">8</button>
+                                <button class="calc-key" data-num="9">9</button>
+                                <button class="calc-key operator" data-op="/"><i class="fas fa-divide"></i></button>
+                                <button class="calc-key" data-num="4">4</button>
+                                <button class="calc-key" data-num="5">5</button>
+                                <button class="calc-key" data-num="6">6</button>
+                                <button class="calc-key operator" data-op="*"><i class="fas fa-times"></i></button>
+                                <button class="calc-key" data-num="1">1</button>
+                                <button class="calc-key" data-num="2">2</button>
+                                <button class="calc-key" data-num="3">3</button>
+                                <button class="calc-key operator" data-op="-"><i class="fas fa-minus"></i></button>
+                                <button class="calc-key" data-num="0">0</button>
+                                <button class="calc-key" data-dot=".">.</button>
+                                <button class="calc-key equals" data-action="equals">=</button>
+                                <button class="calc-key operator" data-op="+"><i class="fas fa-plus"></i></button>
+                                <button class="calc-key" data-func="sin">sin</button>
+                                <button class="calc-key" data-func="cos">cos</button>
+                                <button class="calc-key" data-func="tan">tan</button>
+                                <button class="calc-key" data-func="sqrt">√</button>
+                            </div>
+                            <button id="copyCalcResult" class="calc-key copy-result"><i class="fas fa-copy"></i> Copy to Board</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="mainCanvas"></canvas>
+                </div>
+                
+                <div class="chat-panel">
+                    <div class="chat-header"><i class="fas fa-comments"></i> Chat</div>
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="system-message"><i class="fas fa-info-circle"></i> Welcome to MathsBoard Pro!</div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chatInput" placeholder="Type a message or paste a link...">
+                        <button id="sendChatBtn"><i class="fas fa-paper-plane"></i> Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer (shown on landing pages only) -->
+    <div class="footer" id="footer">
+        <div class="footer-content">
+            <div class="copyright">
+                <i class="far fa-copyright"></i> 2024 MathsBoard Pro. All rights reserved.
+            </div>
+            <div class="footer-links">
+                <a href="#" id="privacyLink"><i class="fas fa-shield-alt"></i> Privacy Policy</a>
+                <a href="#" id="termsLink"><i class="fas fa-file-contract"></i> Terms of Use</a>
+                <a href="#" id="contactLink"><i class="fas fa-envelope"></i> Contact</a>
+            </div>
+            <div class="social-icons">
+                <a href="#" target="_blank"><i class="fab fa-twitter"></i></a>
+                <a href="#" target="_blank"><i class="fab fa-github"></i></a>
+                <a href="#" target="_blank"><i class="fab fa-linkedin-in"></i></a>
+                <a href="#" target="_blank"><i class="fab fa-youtube"></i></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cookie Consent -->
+    <div id="cookieConsent" class="cookie-consent">
+        <i class="fas fa-cookie-bite"></i>
+        <span>We use cookies to enhance your experience. By continuing, you agree to our <a href="#" id="cookiePolicyLink" style="color:#667eea;">Privacy Policy</a>.</span>
+        <button id="acceptCookies"><i class="fas fa-check"></i> Accept</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        let socket, currentUser, currentRoomId;
+        let canvas, ctx, drawing = false, lastX, lastY;
+        let currentColor = '#ff0000', currentSize = 5;
+        let isErasing = false;
+        let isHighlighting = false;
+        
+        // PDF
+        let pdfDoc = null, currentPdfPage = 1, totalPdfPages = 0, pdfImage = null;
+        
+        // Calculator
+        let calcExpr = '';
+        let calcScreen = document.getElementById('calcScreen');
+        
+        let isCollapsed = false;
+        
+        // Cookie Consent
+        function checkCookieConsent() {
+            const consent = localStorage.getItem('cookieConsent');
+            if (!consent) {
+                document.getElementById('cookieConsent').classList.remove('hidden');
+            }
+        }
+        
+        document.getElementById('acceptCookies')?.addEventListener('click', () => {
+            localStorage.setItem('cookieConsent', 'accepted');
+            document.getElementById('cookieConsent').classList.add('hidden');
+            toast('Cookie preferences saved!');
+        });
+        
+        // Footer links (modal popups)
+        function showModal(title, content) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:2000;display:flex;justify-content:center;align-items:center;';
+            modal.innerHTML = `
+                <div style="background:white;border-radius:20px;max-width:500px;width:90%;padding:30px;max-height:80vh;overflow-y:auto;">
+                    <h2 style="color:#667eea;margin-bottom:20px;">${title}</h2>
+                    <div style="color:#333;line-height:1.6;">${content}</div>
+                    <button id="closeModal" style="margin-top:20px;padding:10px 20px;background:#667eea;color:white;border:none;border-radius:30px;cursor:pointer;">Close</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            document.getElementById('closeModal').onclick = () => modal.remove();
+        }
+        
+        document.getElementById('privacyLink')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showModal('Privacy Policy', `
+                <p><strong>Last updated:</strong> January 2024</p><br>
+                <p>MathsBoard Pro respects your privacy. We collect only essential data to provide our service:</p><br>
+                <ul style="margin-left:20px;">
+                    <li>Account information (username, display name)</li>
+                    <li>Session data (drawings, PDFs - deleted after session ends)</li>
+                    <li>Chat messages (stored only during active session)</li>
+                </ul><br>
+                <p>We do not share your data with third parties. All drawings are transmitted in real-time and not permanently stored.</p>
+            `);
+        });
+        
+        document.getElementById('termsLink')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showModal('Terms of Use', `
+                <p><strong>Effective date:</strong> January 2024</p><br>
+                <p>By using MathsBoard Pro, you agree to:</p><br>
+                <ul style="margin-left:20px;">
+                    <li>Use the service for legitimate educational purposes</li>
+                    <li>Not share inappropriate content</li>
+                    <li>Respect other users' sessions</li>
+                    <li>Not attempt to breach security</li>
+                </ul><br>
+                <p>We reserve the right to terminate accounts violating these terms.</p>
+            `);
+        });
+        
+        document.getElementById('contactLink')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showModal('Contact Us', `
+                <p><strong>Email:</strong> support@mathsboardpro.com</p>
+                <p><strong>Twitter:</strong> @mathsboardpro</p>
+                <p><strong>GitHub:</strong> github.com/mathsboardpro</p><br>
+                <p>For support inquiries, please include your username and session details.</p>
+            `);
+        });
+        
+        document.getElementById('cookiePolicyLink')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showModal('Cookie Policy', `
+                <p>We use cookies to:</p>
+                <ul style="margin-left:20px;">
+                    <li>Remember your login session</li>
+                    <li>Store your preferences</li>
+                    <li>Analyze site usage (anonymously)</li>
+                </ul><br>
+                <p>You can disable cookies in your browser settings, but some features may not work properly.</p>
+            `);
+        });
+        
+        function toast(msg) {
+            let t = document.createElement('div');
+            t.className = 'toast';
+            t.innerHTML = `<i class="fas fa-bell"></i> ${msg}`;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 2500);
+        }
+        
+        function showPage(id) {
+            document.getElementById('loginScreen').classList.remove('active');
+            document.getElementById('joinScreen').classList.remove('active');
+            document.getElementById('boardScreen').classList.remove('active');
+            document.getElementById(id).classList.add('active');
+            // Hide footer on board screen
+            const footer = document.getElementById('footer');
+            if (footer) {
+                if (id === 'boardScreen') {
+                    footer.style.display = 'none';
+                } else {
+                    footer.style.display = 'block';
+                }
+            }
+        }
+        
+        function setupSidebarToggle() {
+            const toggleBtn = document.getElementById('toggleSidebarBtn');
+            const sidebar = document.getElementById('sidebar');
+            if (!toggleBtn) return;
+            toggleBtn.addEventListener('click', () => {
+                isCollapsed = !isCollapsed;
+                if (isCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    toggleBtn.classList.add('collapsed');
+                    toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                } else {
+                    sidebar.classList.remove('collapsed');
+                    toggleBtn.classList.remove('collapsed');
+                    toggleBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                }
+                setTimeout(() => {
+                    if (ctx && canvas) {
+                        if (pdfImage) {
+                            let img = new Image();
+                            img.onload = () => {
+                                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                                const x = (canvas.width - img.width * scale) / 2;
+                                const y = (canvas.height - img.height * scale) / 2;
+                                ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                            };
+                            img.src = pdfImage;
+                        }
+                    }
+                }, 50);
+            });
+        }
+        
+        function initCanvas() {
+            let c = document.getElementById('mainCanvas');
+            let container = c.parentElement;
+            c.width = container.clientWidth;
+            c.height = container.clientHeight;
+            canvas = c;
+            ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            function getPos(e) {
+                let rect = canvas.getBoundingClientRect();
+                let sx = canvas.width / rect.width;
+                let sy = canvas.height / rect.height;
+                let cx, cy;
+                if (e.touches) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+                else { cx = e.clientX; cy = e.clientY; }
+                return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
+            }
+            
+            function start(e) {
+                e.preventDefault();
+                drawing = true;
+                let p = getPos(e);
+                lastX = p.x; lastY = p.y;
+                ctx.beginPath();
+                ctx.moveTo(lastX, lastY);
+            }
+            
+            function draw(e) {
+                if (!drawing) return;
+                e.preventDefault();
+                let p = getPos(e);
+                
+                if (isHighlighting) {
+                    ctx.strokeStyle = 'rgba(255, 255, 0, 0.4)';
+                    ctx.lineWidth = 20;
+                } else if (isErasing) {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 20;
+                } else {
+                    ctx.strokeStyle = currentColor;
+                    ctx.lineWidth = currentSize;
+                }
+                
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                
+                socket?.emit('draw', { 
+                    fromX: lastX, fromY: lastY, 
+                    toX: p.x, toY: p.y, 
+                    color: isHighlighting ? 'rgba(255, 255, 0, 0.4)' : (isErasing ? '#fff' : currentColor), 
+                    size: isHighlighting ? 20 : (isErasing ? 20 : currentSize)
+                });
+                
+                lastX = p.x; lastY = p.y;
+            }
+            
+            function stop() { drawing = false; ctx.beginPath(); }
+            
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stop);
+            canvas.addEventListener('mouseleave', stop);
+            canvas.addEventListener('touchstart', start);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stop);
+        }
+        
+        function drawRemote(d) {
+            ctx.beginPath();
+            ctx.moveTo(d.fromX, d.fromY);
+            ctx.lineTo(d.toX, d.toY);
+            ctx.strokeStyle = d.color;
+            ctx.lineWidth = d.size;
+            ctx.stroke();
+        }
+        
+        function clearBoard() {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (pdfImage) {
+                let img = new Image();
+                img.onload = () => {
+                    const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                    const x = (canvas.width - img.width * scale) / 2;
+                    const y = (canvas.height - img.height * scale) / 2;
+                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                };
+                img.src = pdfImage;
+            }
+        }
+        
+        async function loadPdf(dataUrl) {
+            toast('<i class="fas fa-spinner fa-pulse"></i> Loading PDF...');
+            try {
+                let base64 = dataUrl.split(',')[1];
+                let binary = atob(base64);
+                let bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+                totalPdfPages = pdfDoc.numPages;
+                currentPdfPage = 1;
+                document.getElementById('pdfNav').style.display = 'block';
+                document.getElementById('pageIndicator').innerHTML = `Page 1 / ${totalPdfPages}`;
+                await renderPdfPage();
+                toast(`<i class="fas fa-check-circle"></i> PDF loaded: ${totalPdfPages} pages`);
+            } catch(e) { toast('<i class="fas fa-exclamation-triangle"></i> PDF error'); }
+        }
+        
+        async function renderPdfPage() {
+            let page = await pdfDoc.getPage(currentPdfPage);
+            let scale = Math.min(canvas.width / page.getViewport({ scale: 1 }).width, canvas.height / page.getViewport({ scale: 1 }).height);
+            let viewport = page.getViewport({ scale: scale });
+            let tempCanvas = document.createElement('canvas');
+            tempCanvas.width = viewport.width;
+            tempCanvas.height = viewport.height;
+            await page.render({ canvasContext: tempCanvas.getContext('2d'), viewport }).promise;
+            pdfImage = tempCanvas.toDataURL();
+            let img = new Image();
+            img.onload = () => {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                const x = (canvas.width - img.width) / 2;
+                const y = (canvas.height - img.height) / 2;
+                ctx.drawImage(img, x, y);
+            };
+            img.src = pdfImage;
+            document.getElementById('pageIndicator').innerHTML = `Page ${currentPdfPage} / ${totalPdfPages}`;
+        }
+        
+        function nextPdfPage() { if (currentPdfPage < totalPdfPages) { currentPdfPage++; renderPdfPage(); socket?.emit('pdf-page-change', { pageNum: currentPdfPage }); } }
+        function prevPdfPage() { if (currentPdfPage > 1) { currentPdfPage--; renderPdfPage(); socket?.emit('pdf-page-change', { pageNum: currentPdfPage }); } }
+        
+        function evalExpr(expr) {
+            try {
+                let p = expr.replace(/π/g, 'Math.PI').replace(/e/g, 'Math.E').replace(/sin\(/g, 'Math.sin(').replace(/cos\(/g, 'Math.cos(').replace(/tan\(/g, 'Math.tan(').replace(/sqrt\(/g, 'Math.sqrt(').replace(/\^/g, '**').replace(/×/g, '*').replace(/÷/g, '/');
+                let r = Function('"use strict";return (' + p + ')')();
+                return isNaN(r) ? 'Error' : r;
+            } catch(e) { return 'Error'; }
+        }
+        
+        function updateCalc() { calcScreen.textContent = calcExpr || '0'; }
+        
+        function setupTools() {
+            document.querySelectorAll('.color').forEach(el => {
+                el.onclick = () => {
+                    document.querySelectorAll('.color').forEach(c => c.classList.remove('active'));
+                    el.classList.add('active');
+                    currentColor = el.dataset.color;
+                    isErasing = false;
+                    isHighlighting = false;
+                    document.getElementById('drawBtn').classList.add('active');
+                    document.getElementById('highlighterBtn').classList.remove('active');
+                    document.getElementById('eraserBtn').classList.remove('active');
+                };
+            });
+            document.querySelectorAll('.color')[0].classList.add('active');
+            
+            document.getElementById('brushSlider').oninput = (e) => { 
+                currentSize = parseInt(e.target.value); 
+                document.getElementById('sizeDisplay').innerHTML = `Size: ${currentSize}px`;
+            };
+            
+            document.getElementById('drawBtn').onclick = () => { 
+                isErasing = false;
+                isHighlighting = false;
+                document.getElementById('drawBtn').classList.add('active');
+                document.getElementById('highlighterBtn').classList.remove('active');
+                document.getElementById('eraserBtn').classList.remove('active');
+                toast('Draw mode');
+            };
+            
+            document.getElementById('highlighterBtn').onclick = () => {
+                isHighlighting = true;
+                isErasing = false;
+                document.getElementById('highlighterBtn').classList.add('active');
+                document.getElementById('drawBtn').classList.remove('active');
+                document.getElementById('eraserBtn').classList.remove('active');
+                toast('Highlighter mode');
+            };
+            
+            document.getElementById('eraserBtn').onclick = () => {
+                isErasing = true;
+                isHighlighting = false;
+                document.getElementById('eraserBtn').classList.add('active');
+                document.getElementById('drawBtn').classList.remove('active');
+                document.getElementById('highlighterBtn').classList.remove('active');
+                toast('Eraser mode');
+            };
+            
+            document.getElementById('clearBtn').onclick = () => { 
+                clearBoard(); 
+                socket?.emit('clear-drawings'); 
+                toast('Board cleared');
+            };
+            
+            document.getElementById('uploadPdfBtn').onclick = () => document.getElementById('pdfFile').click();
+            document.getElementById('pdfFile').onchange = (e) => {
+                let file = e.target.files[0];
+                if (!file) return;
+                let reader = new FileReader();
+                reader.onload = async (ev) => { 
+                    await loadPdf(ev.target.result); 
+                    socket?.emit('pdf-loaded', { pdfData: ev.target.result });
+                };
+                reader.readAsDataURL(file);
+            };
+            document.getElementById('removePdfBtn').onclick = () => { 
+                pdfDoc = null; 
+                pdfImage = null; 
+                document.getElementById('pdfNav').style.display = 'none'; 
+                clearBoard(); 
+                socket?.emit('pdf-cleared'); 
+                toast('PDF removed');
+            };
+            document.getElementById('prevPdfBtn').onclick = prevPdfPage;
+            document.getElementById('nextPdfBtn').onclick = nextPdfPage;
+            
+            document.getElementById('copyCodeBtn').onclick = () => { 
+                navigator.clipboard.writeText(currentRoomId); 
+                toast('Room code copied!');
+            };
+            
+            document.querySelectorAll('.calc-key[data-num]').forEach(btn => { btn.onclick = () => { calcExpr += btn.dataset.num; updateCalc(); }; });
+            document.querySelectorAll('.calc-key[data-op]').forEach(btn => { btn.onclick = () => { calcExpr += btn.dataset.op; updateCalc(); }; });
+            document.querySelectorAll('.calc-key[data-dot]').forEach(btn => { btn.onclick = () => { calcExpr += '.'; updateCalc(); }; });
+            document.querySelector('.calc-key[data-action="clear"]').onclick = () => { calcExpr = ''; updateCalc(); };
+            document.querySelector('.calc-key[data-action="del"]').onclick = () => { calcExpr = calcExpr.slice(0, -1); updateCalc(); };
+            document.querySelector('.calc-key[data-action="equals"]').onclick = () => { let r = evalExpr(calcExpr); calcExpr = r.toString(); updateCalc(); toast(`Result: ${r}`); };
+            document.querySelectorAll('.calc-key[data-func]').forEach(btn => {
+                btn.onclick = () => {
+                    let f = btn.dataset.func;
+                    if (f === 'pi') calcExpr += 'π';
+                    else if (f === 'e') calcExpr += 'e';
+                    else if (f === 'sqrt') calcExpr += 'sqrt(';
+                    else calcExpr += `${f}(`;
+                    updateCalc();
+                };
+            });
+            document.getElementById('copyCalcResult').onclick = () => {
+                if (calcExpr && calcExpr !== '0') {
+                    let r = evalExpr(calcExpr);
+                    ctx.font = '24px Arial';
+                    ctx.fillStyle = '#000';
+                    ctx.fillText(r.toString(), canvas.width/2, canvas.height/2);
+                    toast(`Copied: ${r}`);
+                }
+            };
+        }
+        
+        function linkify(t) { return t.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>'); }
+        function escapeHtml(t) { let d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+        
+        function addChatMsg(msg) {
+            let div = document.createElement('div');
+            div.className = `message ${msg.userId === socket?.id ? 'own' : ''}`;
+            let t = new Date(msg.timestamp).toLocaleTimeString();
+            div.innerHTML = `<div class="message-name"><i class="fas fa-user-circle"></i> ${escapeHtml(msg.userName)} <span class="message-time">${t}</span></div>${linkify(escapeHtml(msg.message))}`;
+            document.getElementById('chatMessages').appendChild(div);
+            div.scrollIntoView();
+        }
+        
+        function addSysMsg(msg) {
+            let div = document.createElement('div');
+            div.className = 'system-message';
+            div.innerHTML = `<i class="fas fa-info-circle"></i> ${msg}`;
+            document.getElementById('chatMessages').appendChild(div);
+            div.scrollIntoView();
+        }
+        
+        function sendChat() {
+            let input = document.getElementById('chatInput');
+            let msg = input.value.trim();
+            if (msg) {
+                socket.emit('chat-message', msg);
+                input.value = '';
+            }
+        }
+        
+        function initSocket() {
+            socket = io();
+            socket.on('connect', () => socket.emit('login', currentUser));
+            socket.on('room-created', (d) => {
+                currentRoomId = d.roomId;
+                document.getElementById('roomIdDisplay').innerText = d.roomId;
+                showPage('boardScreen');
+                initCanvas();
+                setupTools();
+                setupSidebarToggle();
+                toast(`<i class="fas fa-check-circle"></i> Room created: ${d.roomId}`);
+                addSysMsg(`Room code: ${d.roomId} - Share this code`);
+            });
+            socket.on('room-joined', (d) => {
+                currentRoomId = d.roomId;
+                document.getElementById('roomIdDisplay').innerText = d.roomId;
+                showPage('boardScreen');
+                initCanvas();
+                setupTools();
+                setupSidebarToggle();
+                d.drawings.forEach(dr => drawRemote(dr));
+                d.messages.forEach(m => addChatMsg(m));
+                toast(`<i class="fas fa-door-open"></i> Joined room: ${d.roomId}`);
+            });
+            socket.on('draw', (d) => drawRemote(d));
+            socket.on('clear-drawings', () => clearBoard());
+            socket.on('chat-message', (m) => addChatMsg(m));
+            socket.on('user-joined', (u) => addSysMsg(`${u.name} joined`));
+            socket.on('user-left', () => addSysMsg(`User left`));
+            socket.on('pdf-loaded', (d) => loadPdf(d.pdfData));
+            socket.on('pdf-cleared', () => { pdfDoc = null; pdfImage = null; document.getElementById('pdfNav').style.display = 'none'; clearBoard(); });
+            socket.on('pdf-page-change', (d) => { if (pdfDoc && d.pageNum !== currentPdfPage) { currentPdfPage = d.pageNum; renderPdfPage(); } });
+            socket.on('error', (e) => toast(`<i class="fas fa-exclamation-triangle"></i> ${e}`));
+        }
+        
+        document.getElementById('loginTab').onclick = () => {
+            document.getElementById('loginTab').classList.add('active');
+            document.getElementById('registerTab').classList.remove('active');
+            document.getElementById('loginForm').classList.add('active');
+            document.getElementById('registerForm').classList.remove('active');
+        };
+        document.getElementById('registerTab').onclick = () => {
+            document.getElementById('registerTab').classList.add('active');
+            document.getElementById('loginTab').classList.remove('active');
+            document.getElementById('registerForm').classList.add('active');
+            document.getElementById('loginForm').classList.remove('active');
+        };
+        document.getElementById('doLogin').onclick = async () => {
+            let res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('loginUser').value, password: document.getElementById('loginPass').value }) });
+            let data = await res.json();
+            if (data.success) {
+                currentUser = data.user;
+                document.getElementById('userAvatar').src = currentUser.avatar;
+                document.getElementById('userName').textContent = currentUser.name;
+                initSocket();
+                showPage('joinScreen');
+                toast(`<i class="fas fa-check-circle"></i> Welcome ${currentUser.name}!`);
+            } else toast(`<i class="fas fa-exclamation-triangle"></i> ${data.error}`);
+        };
+        document.getElementById('doRegister').onclick = async () => {
+            if (document.getElementById('regPass').value !== document.getElementById('regConfirm').value) return toast('Passwords mismatch');
+            let res = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('regUser').value, password: document.getElementById('regPass').value, name: document.getElementById('regName').value }) });
+            let data = await res.json();
+            if (data.success) { toast('Registered! Please login'); document.getElementById('loginTab').click(); }
+            else toast(data.error);
+        };
+        document.getElementById('logoutBtn').onclick = () => location.reload();
+        document.getElementById('leaveBtn').onclick = () => location.reload();
+        document.getElementById('createRoomBtn').onclick = () => { if (!socket) initSocket(); setTimeout(() => socket.emit('create-room'), 500); };
+        document.getElementById('joinRoomBtn').onclick = () => { let code = document.getElementById('roomCodeInput').value; if (!code) return toast('Enter room code'); if (!socket) initSocket(); setTimeout(() => socket.emit('join-room', code), 500); };
+        document.getElementById('sendChatBtn').onclick = sendChat;
+        document.getElementById('chatInput').onkeypress = (e) => { if (e.key === 'Enter') sendChat(); };
+        
+        // Initialize
+        checkCookieConsent();
+    </script>
+</body>
+</html>
