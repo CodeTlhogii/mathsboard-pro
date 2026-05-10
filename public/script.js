@@ -1,4 +1,4 @@
-console.log('MathsBoard Pro - Complete Version');
+console.log('MathsBoard Pro - Fixed Version');
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -8,7 +8,9 @@ let currentColor = '#ff0000', currentSize = 5;
 let isErasing = false, isHighlighting = false;
 let sessionStartTime, timerInterval;
 let pdfDoc = null, currentPage = 1, totalPages = 0, pdfImage = null;
-let currentScrollLeft = 0, currentScrollTop = 0;
+let pdfActive = false; // Track if PDF is active
+let reconnectAttempts = 0;
+let heartbeatInterval = null;
 
 // Calculator
 let calcExpr = '';
@@ -37,22 +39,14 @@ function showPage(page) {
     else if (page === 'board') boardContainer.style.display = 'flex';
 }
 
-// Save scroll position
-function saveScrollPosition() {
-    if (canvasContainer) {
-        currentScrollLeft = canvasContainer.scrollLeft;
-        currentScrollTop = canvasContainer.scrollTop;
-    }
-}
-
-// Restore scroll position
-function restoreScrollPosition() {
-    if (canvasContainer && (currentScrollLeft > 0 || currentScrollTop > 0)) {
-        setTimeout(() => {
-            canvasContainer.scrollLeft = currentScrollLeft;
-            canvasContainer.scrollTop = currentScrollTop;
-        }, 50);
-    }
+// ============ HEARTBEAT TO KEEP SOCKET ALIVE ============
+function startHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+        if (socket && socket.connected) {
+            socket.emit('heartbeat');
+        }
+    }, 25000);
 }
 
 // ============ AUTH ============
@@ -161,10 +155,13 @@ document.getElementById('loginBtn')?.addEventListener('click', async () => {
 
 document.getElementById('logoutBtn')?.addEventListener('click', () => location.reload());
 document.getElementById('leaveBtn')?.addEventListener('click', () => location.reload());
-document.getElementById('createRoomBtn')?.addEventListener('click', () => socket?.emit('create-room'));
+document.getElementById('createRoomBtn')?.addEventListener('click', () => {
+    if (socket) socket.emit('create-room');
+    else toast('Reconnecting...');
+});
 document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
     const code = document.getElementById('roomCode').value.trim();
-    if (code) socket?.emit('join-room', code);
+    if (code && socket) socket.emit('join-room', code);
     else toast('Enter room code');
 });
 
@@ -193,7 +190,7 @@ function initCollapse() {
                     canvas.height = container.clientHeight;
                     ctx.fillStyle = '#fff';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    if (pdfImage) {
+                    if (pdfActive && pdfImage) {
                         const img = new Image();
                         img.onload = () => {
                             const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
@@ -220,7 +217,6 @@ function initMobileChatToggle() {
         mobileChatToggle.style.display = 'flex';
         mobileChatToggle.classList.remove('hidden');
         
-        // Remove existing listeners to avoid duplicates
         const newToggle = mobileChatToggle.cloneNode(true);
         mobileChatToggle.parentNode.replaceChild(newToggle, mobileChatToggle);
         const freshToggle = document.getElementById('mobileChatToggle');
@@ -235,7 +231,6 @@ function initMobileChatToggle() {
             }
         };
         
-        // Close chat when clicking outside
         const closeChatHandler = (e) => {
             if (chatPanel.classList.contains('mobile-open')) {
                 if (!chatPanel.contains(e.target) && e.target !== freshToggle) {
@@ -248,14 +243,11 @@ function initMobileChatToggle() {
         document.removeEventListener('click', closeChatHandler);
         document.addEventListener('click', closeChatHandler);
         
-        // Handle leave button
         const leaveBtn = document.getElementById('leaveBtn');
         if (leaveBtn) {
-            const oldLeaveClick = leaveBtn.onclick;
             leaveBtn.onclick = () => {
                 chatPanel.classList.remove('mobile-open');
                 if (freshToggle) freshToggle.classList.remove('hidden');
-                if (oldLeaveClick) oldLeaveClick();
                 location.reload();
             };
         }
@@ -264,53 +256,45 @@ function initMobileChatToggle() {
     }
 }
 
-// Auto-hide PDF zoom hint
-setTimeout(() => {
-    const hint = document.getElementById('pdfZoomHint');
-    if (hint) hint.style.display = 'none';
-}, 4000);
-
-// Handle orientation change with scroll position preservation
-function handleOrientationChange() {
-    saveScrollPosition();
-    setTimeout(() => {
-        if (pdfDoc) {
-            renderPDFPage().then(() => {
-                restoreScrollPosition();
-            });
-        }
-        if (canvas) {
-            const container = canvas.parentElement;
-            if (window.innerWidth <= 768) {
-                container.style.overflow = 'auto';
-            } else {
-                container.style.overflow = 'hidden';
-            }
-        }
-    }, 100);
-}
-
 window.addEventListener('resize', () => {
     initMobileChatToggle();
-    saveScrollPosition();
     if (pdfDoc) {
-        setTimeout(() => {
-            renderPDFPage().then(() => {
-                restoreScrollPosition();
-            });
-        }, 100);
+        setTimeout(() => renderPDFPage(), 100);
     }
 });
 
-window.addEventListener('orientationchange', handleOrientationChange);
-
-// ============ SOCKET ============
+// ============ SOCKET WITH RECONNECT ============
 function initSocket() {
-    socket = io();
+    socket = io({
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000
+    });
     
     socket.on('connect', () => {
         console.log('Socket connected');
+        reconnectAttempts = 0;
         socket.emit('login', currentUser);
+        startHeartbeat();
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Socket disconnected');
+        toast('Connection lost, reconnecting...');
+    });
+    
+    socket.on('reconnect', () => {
+        console.log('Socket reconnected');
+        toast('Reconnected!');
+        if (currentRoomId) {
+            socket.emit('join-room', currentRoomId);
+        }
+    });
+    
+    socket.on('heartbeat', () => {
+        console.log('Heartbeat received');
     });
     
     socket.on('room-created', (data) => {
@@ -371,17 +355,15 @@ function initSocket() {
     socket.on('pdf-cleared', () => {
         pdfDoc = null;
         pdfImage = null;
+        pdfActive = false;
         document.getElementById('pdfNav').style.display = 'none';
         clearBoard();
         toast('PDF removed');
     });
     socket.on('pdf-page-change', ({ pageNum }) => {
         if (pdfDoc && pageNum !== currentPage) {
-            saveScrollPosition();
             currentPage = pageNum;
-            renderPDFPage().then(() => {
-                restoreScrollPosition();
-            });
+            renderPDFPage();
         }
     });
     socket.on('error', (e) => toast(e));
@@ -407,7 +389,7 @@ function startTimer() {
     }, 1000);
 }
 
-// ============ CANVAS ============
+// ============ CANVAS DRAWING - FIXED ============
 function initCanvas() {
     const c = document.getElementById('mainCanvas');
     const container = c.parentElement;
@@ -421,7 +403,7 @@ function initCanvas() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        if (pdfImage) {
+        if (pdfActive && pdfImage) {
             const img = new Image();
             img.onload = () => {
                 const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
@@ -480,11 +462,23 @@ function initCanvas() {
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
-        socket?.emit('draw', { fromX: lastX, fromY: lastY, toX: p.x, toY: p.y, color: currentColor, size: currentSize });
+        
+        if (socket && socket.connected) {
+            socket.emit('draw', { fromX: lastX, fromY: lastY, toX: p.x, toY: p.y, color: currentColor, size: currentSize });
+        }
         lastX = p.x; lastY = p.y;
     }
     
     function stop() { drawing = false; ctx.beginPath(); }
+    
+    // Remove old listeners to avoid duplicates
+    canvas.removeEventListener('mousedown', start);
+    canvas.removeEventListener('mousemove', draw);
+    canvas.removeEventListener('mouseup', stop);
+    canvas.removeEventListener('mouseleave', stop);
+    canvas.removeEventListener('touchstart', start);
+    canvas.removeEventListener('touchmove', draw);
+    canvas.removeEventListener('touchend', stop);
     
     canvas.addEventListener('mousedown', start);
     canvas.addEventListener('mousemove', draw);
@@ -509,7 +503,7 @@ function clearBoard() {
     if (!ctx) return;
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (pdfImage) {
+    if (pdfActive && pdfImage) {
         const img = new Image();
         img.onload = () => {
             const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
@@ -532,6 +526,7 @@ async function loadPDFFromData(dataUrl) {
         pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
         totalPages = pdfDoc.numPages;
         currentPage = 1;
+        pdfActive = true;
         document.getElementById('pdfNav').style.display = 'block';
         document.getElementById('pageIndicator').innerHTML = `Page 1 / ${totalPages}`;
         await renderPDFPage();
@@ -542,81 +537,67 @@ async function loadPDFFromData(dataUrl) {
 async function renderPDFPage() {
     if (!pdfDoc) return;
     
-    return new Promise(async (resolve) => {
-        const page = await pdfDoc.getPage(currentPage);
-        const container = canvas.parentElement;
-        const containerWidth = container.clientWidth;
-        const containerHeight = container.clientHeight;
+    const page = await pdfDoc.getPage(currentPage);
+    const container = canvas.parentElement;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    
+    const viewport = page.getViewport({ scale: 1 });
+    let scale;
+    if (window.innerWidth <= 768) {
+        scale = containerWidth / viewport.width;
+    } else {
+        const scaleX = containerWidth / viewport.width;
+        const scaleY = containerHeight / viewport.height;
+        scale = Math.min(scaleX, scaleY);
+    }
+    
+    const scaledViewport = page.getViewport({ scale: scale });
+    
+    canvas.width = scaledViewport.width;
+    canvas.height = scaledViewport.height;
+    canvas.style.width = `${scaledViewport.width}px`;
+    canvas.style.height = `${scaledViewport.height}px`;
+    
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = scaledViewport.width;
+    tempCanvas.height = scaledViewport.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    await page.render({ canvasContext: tempCtx, viewport: scaledViewport }).promise;
+    
+    pdfImage = tempCanvas.toDataURL();
+    const img = new Image();
+    img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
         
-        // Calculate scale
-        const viewport = page.getViewport({ scale: 1 });
-        let scale;
         if (window.innerWidth <= 768) {
-            // Mobile: fit width, allow vertical scroll
-            scale = containerWidth / viewport.width;
-        } else {
-            // Desktop: fit both dimensions
-            const scaleX = containerWidth / viewport.width;
-            const scaleY = containerHeight / viewport.height;
-            scale = Math.min(scaleX, scaleY);
-        }
-        
-        const scaledViewport = page.getViewport({ scale: scale });
-        
-        // Set canvas dimensions
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-        canvas.style.width = `${scaledViewport.width}px`;
-        canvas.style.height = `${scaledViewport.height}px`;
-        
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = scaledViewport.width;
-        tempCanvas.height = scaledViewport.height;
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        await page.render({ canvasContext: tempCtx, viewport: scaledViewport }).promise;
-        
-        pdfImage = tempCanvas.toDataURL();
-        const img = new Image();
-        img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0);
-            
-            // Center horizontally on mobile
-            if (window.innerWidth <= 768) {
-                const container = canvas.parentElement;
-                if (canvas.width > container.clientWidth) {
-                    container.scrollLeft = (canvas.width - container.clientWidth) / 2;
-                }
-                container.scrollTop = 0;
+            const container = canvas.parentElement;
+            if (canvas.width > container.clientWidth) {
+                container.scrollLeft = (canvas.width - container.clientWidth) / 2;
             }
-            resolve();
-        };
-        img.src = pdfImage;
-        
-        document.getElementById('pageIndicator').innerHTML = `Page ${currentPage} / ${totalPages}`;
-    });
+            container.scrollTop = 0;
+        }
+    };
+    img.src = pdfImage;
+    
+    document.getElementById('pageIndicator').innerHTML = `Page ${currentPage} / ${totalPages}`;
 }
 
 function nextPage() { 
     if (currentPage < totalPages) { 
-        saveScrollPosition();
         currentPage++; 
-        renderPDFPage().then(() => {
-            restoreScrollPosition();
-        });
-        socket?.emit('pdf-page-change', { pageNum: currentPage });
+        renderPDFPage(); 
+        if (socket) socket.emit('pdf-page-change', { pageNum: currentPage });
     } 
 }
 
 function prevPage() { 
     if (currentPage > 1) { 
-        saveScrollPosition();
         currentPage--; 
-        renderPDFPage().then(() => {
-            restoreScrollPosition();
-        });
-        socket?.emit('pdf-page-change', { pageNum: currentPage });
+        renderPDFPage(); 
+        if (socket) socket.emit('pdf-page-change', { pageNum: currentPage });
     } 
 }
 
@@ -722,7 +703,7 @@ function setupTools() {
     
     document.getElementById('clearBtn')?.addEventListener('click', () => {
         clearBoard();
-        socket?.emit('clear-drawings');
+        if (socket) socket.emit('clear-drawings');
         toast('Board cleared');
     });
     
@@ -733,16 +714,17 @@ function setupTools() {
         const reader = new FileReader();
         reader.onload = async (ev) => {
             await loadPDFFromData(ev.target.result);
-            socket?.emit('pdf-loaded', { pdfData: ev.target.result });
+            if (socket) socket.emit('pdf-loaded', { pdfData: ev.target.result });
         };
         reader.readAsDataURL(file);
     });
     document.getElementById('removePdfBtn')?.addEventListener('click', () => {
         pdfDoc = null;
         pdfImage = null;
+        pdfActive = false;
         document.getElementById('pdfNav').style.display = 'none';
         clearBoard();
-        socket?.emit('pdf-cleared');
+        if (socket) socket.emit('pdf-cleared');
         toast('PDF removed');
     });
     document.getElementById('prevPdfBtn')?.addEventListener('click', prevPage);
@@ -781,15 +763,14 @@ function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const msg = input.value.trim();
     if (!msg) return;
-    if (!socket) {
-        toast('Not connected');
+    if (!socket || !socket.connected) {
+        toast('Not connected to server');
         return;
     }
     socket.emit('chat-message', msg);
     input.value = '';
 }
 
-// Wire up chat button
 const sendChatBtn = document.getElementById('sendChatBtn');
 const chatInputField = document.getElementById('chatInput');
 if (sendChatBtn) sendChatBtn.onclick = sendChatMessage;
@@ -821,4 +802,4 @@ function initMobile() {
 // Initialize
 initMobile();
 setupCalculator();
-console.log('MathsBoard Pro - Complete version ready');
+console.log('MathsBoard Pro - Fixed Version Ready (Drawing on board + Chat persistence)');

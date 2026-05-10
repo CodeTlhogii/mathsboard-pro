@@ -9,7 +9,9 @@ const io = socketIO(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
-  }
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 app.use(express.static('public'));
@@ -90,6 +92,12 @@ const rooms = new Map();
 io.on('connection', (socket) => {
   console.log('🟢 User connected:', socket.id);
 
+  // Heartbeat to keep connection alive
+  socket.on('heartbeat', () => {
+    // Just respond to keep connection alive
+    socket.emit('heartbeat');
+  });
+
   socket.on('login', (user) => {
     socket.user = user;
     console.log(`✅ ${user.name} logged in`);
@@ -117,6 +125,12 @@ io.on('connection', (socket) => {
       socket.emit('error', 'Room not found');
       return;
     }
+    
+    // Leave previous room if any
+    if (socket.roomId) {
+      socket.leave(socket.roomId);
+    }
+    
     socket.join(roomId);
     socket.roomId = roomId;
     room.participants.add(socket.id);
@@ -191,15 +205,27 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`🔴 User disconnected: ${socket.id}`);
     if (socket.roomId) {
-      socket.to(socket.roomId).emit('user-left');
+      const room = rooms.get(socket.roomId);
+      if (room) {
+        room.participants.delete(socket.id);
+        socket.to(socket.roomId).emit('user-left', socket.id);
+        
+        // Clean up empty rooms
+        if (room.participants.size === 0) {
+          rooms.delete(socket.roomId);
+          console.log(`🗑️ Room ${socket.roomId} deleted (empty)`);
+        }
+      }
     }
   });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`\n========================================`);
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`========================================`);
   console.log(`\n📝 Sign up with any email to create an account`);
+  console.log(`💬 Chat persistence: ON`);
+  console.log(`🔄 Heartbeat interval: 25 seconds`);
 });
