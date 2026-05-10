@@ -1,4 +1,4 @@
-console.log('MathsBoard Pro - Complete Version');
+console.log('MathsBoard Pro - Stable Version');
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -7,9 +7,8 @@ let canvas, ctx, drawing = false, lastX, lastY;
 let currentColor = '#ff0000', currentSize = 5;
 let isErasing = false, isHighlighting = false;
 let sessionStartTime, timerInterval;
-let pdfDoc = null, currentPage = 1, totalPages = 0;
-let pdfImageData = null;
-let hasPdf = false;
+let pdfDoc = null, currentPage = 1, totalPages = 0, pdfImage = null;
+let pdfLoaded = false;
 let heartbeatInterval = null;
 
 // Calculator
@@ -71,6 +70,7 @@ if (registerTab) {
     };
 }
 
+// Register
 document.getElementById('registerBtn')?.addEventListener('click', async () => {
     const email = document.getElementById('regEmail').value.trim();
     const username = document.getElementById('regUsername').value.trim();
@@ -117,6 +117,7 @@ document.getElementById('registerBtn')?.addEventListener('click', async () => {
     }
 });
 
+// Login
 document.getElementById('loginBtn')?.addEventListener('click', async () => {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
@@ -189,7 +190,7 @@ function initCollapse() {
     }
 }
 
-// ============ CANVAS DRAWING ============
+// ============ CANVAS DRAWING - SIMPLIFIED ============
 function initCanvas() {
     const c = document.getElementById('mainCanvas');
     const container = c.parentElement;
@@ -202,6 +203,7 @@ function initCanvas() {
         redrawCanvas();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
+        console.log('Canvas resized:', canvas.width, canvas.height);
     }
     
     resizeCanvas();
@@ -229,6 +231,7 @@ function initCanvas() {
         lastX = p.x; lastY = p.y;
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
+        console.log('Drawing started');
     }
     
     function draw(e) {
@@ -240,7 +243,7 @@ function initCanvas() {
             ctx.strokeStyle = 'rgba(255,255,0,0.4)';
             ctx.lineWidth = 20;
         } else if (isErasing) {
-            ctx.strokeStyle = '#fff';
+            ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 20;
         } else {
             ctx.strokeStyle = currentColor;
@@ -270,26 +273,22 @@ function initCanvas() {
 }
 
 function redrawCanvas() {
-    if (!ctx || !canvas) return;
-    
+    if (!ctx) return;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    if (hasPdf && pdfImageData) {
+    if (pdfLoaded && pdfImage) {
         const img = new Image();
         img.onload = () => {
             const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
             const x = (canvas.width - img.width * scale) / 2;
             const y = (canvas.height - img.height * scale) / 2;
             ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
         };
-        img.src = pdfImageData;
-    } else {
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        img.src = pdfImage;
     }
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 }
 
 function drawRemote(d) {
@@ -313,21 +312,14 @@ async function loadPDFFromData(dataUrl) {
         pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
         totalPages = pdfDoc.numPages;
         currentPage = 1;
-        hasPdf = true;
-        
-        const pdfNav = document.getElementById('pdfNav');
-        if (pdfNav) pdfNav.style.display = 'block';
-        
-        const pageIndicator = document.getElementById('pageIndicator');
-        if (pageIndicator) pageIndicator.innerHTML = `Page 1 / ${totalPages}`;
-        
+        pdfLoaded = true;
+        document.getElementById('pdfNav').style.display = 'block';
+        document.getElementById('pageIndicator').innerHTML = `Page 1 / ${totalPages}`;
         await renderPDFPage();
         toast(`PDF loaded: ${totalPages} pages`);
-        
-        if (socket) socket.emit('pdf-loaded', { pdfData: dataUrl });
     } catch(e) { 
-        console.error('PDF load error:', e);
-        toast('PDF error - file may be corrupted or too large');
+        console.error(e);
+        toast('PDF error'); 
     }
 }
 
@@ -340,21 +332,8 @@ async function renderPDFPage() {
     const containerHeight = container.clientHeight;
     
     const viewport = page.getViewport({ scale: 1 });
-    let scale;
-    if (window.innerWidth <= 768) {
-        scale = containerWidth / viewport.width;
-    } else {
-        const scaleX = containerWidth / viewport.width;
-        const scaleY = containerHeight / viewport.height;
-        scale = Math.min(scaleX, scaleY);
-    }
-    
+    const scale = Math.min(containerWidth / viewport.width, containerHeight / viewport.height);
     const scaledViewport = page.getViewport({ scale: scale });
-    
-    canvas.width = scaledViewport.width;
-    canvas.height = scaledViewport.height;
-    canvas.style.width = `${scaledViewport.width}px`;
-    canvas.style.height = `${scaledViewport.height}px`;
     
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = scaledViewport.width;
@@ -363,24 +342,8 @@ async function renderPDFPage() {
     
     await page.render({ canvasContext: tempCtx, viewport: scaledViewport }).promise;
     
-    pdfImageData = tempCanvas.toDataURL();
-    const img = new Image();
-    img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        if (window.innerWidth <= 768) {
-            const container = canvas.parentElement;
-            if (canvas.width > container.clientWidth) {
-                container.scrollLeft = (canvas.width - container.clientWidth) / 2;
-            }
-            container.scrollTop = 0;
-        }
-    };
-    img.src = pdfImageData;
-    
+    pdfImage = tempCanvas.toDataURL();
+    redrawCanvas();
     document.getElementById('pageIndicator').innerHTML = `Page ${currentPage} / ${totalPages}`;
 }
 
@@ -402,21 +365,12 @@ function prevPage() {
 
 function clearPDF() {
     pdfDoc = null;
-    pdfImageData = null;
-    hasPdf = false;
-    
-    const pdfNav = document.getElementById('pdfNav');
-    if (pdfNav) pdfNav.style.display = 'none';
-    
-    if (ctx && canvas) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-    }
-    
+    pdfImage = null;
+    pdfLoaded = false;
+    document.getElementById('pdfNav').style.display = 'none';
+    redrawCanvas();
     if (socket) socket.emit('pdf-cleared');
-    toast('PDF removed - drawing restored');
+    toast('PDF removed');
 }
 
 // ============ CALCULATOR ============
@@ -535,6 +489,7 @@ function setupTools() {
         const reader = new FileReader();
         reader.onload = async (ev) => {
             await loadPDFFromData(ev.target.result);
+            if (socket) socket.emit('pdf-loaded', { pdfData: ev.target.result });
         };
         reader.readAsDataURL(file);
     });
@@ -788,4 +743,4 @@ window.addEventListener('resize', () => {
 // Initialize
 initMobile();
 setupCalculator();
-console.log('MathsBoard Pro - Complete version ready');
+console.log('MathsBoard Pro - Stable version ready');
