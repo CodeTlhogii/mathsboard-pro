@@ -1,79 +1,491 @@
+console.log('MathsBoard Pro - Complete Version');
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
 let socket, currentUser, currentRoomId;
 let canvas, ctx, drawing = false, lastX, lastY;
-let currentColor = '#ff0000', currentSize = 5, isErasing = false;
+let currentColor = '#ff0000', currentSize = 5;
+let isErasing = false, isHighlighting = false;
+let sessionStartTime, timerInterval;
+let pdfDoc = null, currentPage = 1, totalPages = 0, pdfImage = null;
+let currentScrollLeft = 0, currentScrollTop = 0;
 
-// PDF variables
-let pdfDoc = null, currentPage = 1, totalPages = 0, pdfImageData = null;
-let pdfControls = document.getElementById('pdf-controls');
-let pageIndicator = document.getElementById('page-indicator');
+// Calculator
+let calcExpr = '';
+let calcScreen = document.getElementById('calcScreen');
 
-// Calculator variables
-let calcExpression = '';
-let calcDisplay = document.getElementById('calc-display');
+// DOM Elements
+const authContainer = document.getElementById('authContainer');
+const joinContainer = document.getElementById('joinContainer');
+const boardContainer = document.getElementById('boardContainer');
+const canvasContainer = document.getElementById('canvasContainer');
 
-function showToast(msg) {
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = msg;
-    document.getElementById('toast-container').appendChild(toast);
-    setTimeout(() => toast.remove(), 2500);
+function toast(msg) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = `<i class="fas fa-bell"></i> ${msg}`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
 }
 
-function showScreen(id) {
-    ['login-screen', 'join-screen', 'board-screen'].forEach(s => document.getElementById(s).classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+function showPage(page) {
+    authContainer.style.display = 'none';
+    joinContainer.style.display = 'none';
+    boardContainer.style.display = 'none';
+    if (page === 'auth') authContainer.style.display = 'flex';
+    else if (page === 'join') joinContainer.style.display = 'flex';
+    else if (page === 'board') boardContainer.style.display = 'flex';
 }
 
-// ============ CANVAS DRAWING ============
-function initCanvas() {
-    const canvasEl = document.getElementById('whiteboard');
-    const rect = canvasEl.parentElement;
-    canvasEl.width = rect.clientWidth;
-    canvasEl.height = rect.clientHeight;
-    canvas = canvasEl;
-    ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    function getCoords(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        let cx, cy;
-        if (e.touches) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
-        else { cx = e.clientX; cy = e.clientY; }
-        return { x: (cx - rect.left) * scaleX, y: (cy - rect.top) * scaleY };
+// Save scroll position
+function saveScrollPosition() {
+    if (canvasContainer) {
+        currentScrollLeft = canvasContainer.scrollLeft;
+        currentScrollTop = canvasContainer.scrollTop;
     }
+}
 
+// Restore scroll position
+function restoreScrollPosition() {
+    if (canvasContainer && (currentScrollLeft > 0 || currentScrollTop > 0)) {
+        setTimeout(() => {
+            canvasContainer.scrollLeft = currentScrollLeft;
+            canvasContainer.scrollTop = currentScrollTop;
+        }, 50);
+    }
+}
+
+// ============ AUTH ============
+const loginTab = document.getElementById('loginTab');
+const registerTab = document.getElementById('registerTab');
+const loginForm = document.getElementById('loginForm');
+const registerForm = document.getElementById('registerForm');
+
+if (loginTab) {
+    loginTab.onclick = () => {
+        loginTab.classList.add('active');
+        registerTab.classList.remove('active');
+        loginForm.classList.add('active');
+        registerForm.classList.remove('active');
+    };
+}
+if (registerTab) {
+    registerTab.onclick = () => {
+        registerTab.classList.add('active');
+        loginTab.classList.remove('active');
+        registerForm.classList.add('active');
+        loginForm.classList.remove('active');
+    };
+}
+
+// Register
+document.getElementById('registerBtn')?.addEventListener('click', async () => {
+    const email = document.getElementById('regEmail').value.trim();
+    const username = document.getElementById('regUsername').value.trim();
+    const name = document.getElementById('regName').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const confirm = document.getElementById('regConfirm').value;
+    
+    if (!email || !username || !password) {
+        document.getElementById('registerError').textContent = 'Please fill all required fields';
+        return;
+    }
+    if (password !== confirm) {
+        document.getElementById('registerError').textContent = 'Passwords do not match';
+        return;
+    }
+    if (password.length < 4) {
+        document.getElementById('registerError').textContent = 'Password must be at least 4 characters';
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, username, password, name })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            toast('Registration successful! Please login.');
+            loginTab.click();
+            document.getElementById('loginEmail').value = email;
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('regEmail').value = '';
+            document.getElementById('regUsername').value = '';
+            document.getElementById('regName').value = '';
+            document.getElementById('regPassword').value = '';
+            document.getElementById('regConfirm').value = '';
+        } else {
+            document.getElementById('registerError').textContent = data.error;
+        }
+    } catch (err) {
+        document.getElementById('registerError').textContent = 'Server error';
+    }
+});
+
+// Login
+document.getElementById('loginBtn')?.addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    
+    if (!email || !password) {
+        document.getElementById('loginError').textContent = 'Enter email and password';
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            currentUser = data.user;
+            document.getElementById('userAvatar').src = currentUser.avatar;
+            document.getElementById('userName').textContent = currentUser.name;
+            document.getElementById('userEmail').textContent = currentUser.email;
+            showPage('join');
+            toast(`Welcome ${currentUser.name}!`);
+            initSocket();
+        } else {
+            document.getElementById('loginError').textContent = data.error;
+        }
+    } catch (err) {
+        document.getElementById('loginError').textContent = 'Server error';
+    }
+});
+
+document.getElementById('logoutBtn')?.addEventListener('click', () => location.reload());
+document.getElementById('leaveBtn')?.addEventListener('click', () => location.reload());
+document.getElementById('createRoomBtn')?.addEventListener('click', () => socket?.emit('create-room'));
+document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
+    const code = document.getElementById('roomCode').value.trim();
+    if (code) socket?.emit('join-room', code);
+    else toast('Enter room code');
+});
+
+// ============ SIDEBAR COLLAPSE ============
+function initCollapse() {
+    const collapseBtn = document.getElementById('collapseBtn');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (collapseBtn) {
+        collapseBtn.onclick = () => {
+            sidebar.classList.toggle('collapsed');
+            const icon = collapseBtn.querySelector('i');
+            if (sidebar.classList.contains('collapsed')) {
+                icon.classList.remove('fa-chevron-left');
+                icon.classList.add('fa-chevron-right');
+                collapseBtn.querySelector('span').textContent = 'Expand';
+            } else {
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-left');
+                collapseBtn.querySelector('span').textContent = 'Collapse';
+            }
+            setTimeout(() => {
+                if (canvas) {
+                    const container = canvas.parentElement;
+                    canvas.width = container.clientWidth;
+                    canvas.height = container.clientHeight;
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    if (pdfImage) {
+                        const img = new Image();
+                        img.onload = () => {
+                            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                            const x = (canvas.width - img.width * scale) / 2;
+                            const y = (canvas.height - img.height * scale) / 2;
+                            ctx.drawImage(img, x, y);
+                        };
+                        img.src = pdfImage;
+                    }
+                }
+            }, 300);
+        };
+    }
+}
+
+// ============ MOBILE CHAT TOGGLE ============
+function initMobileChatToggle() {
+    const mobileChatToggle = document.getElementById('mobileChatToggle');
+    const chatPanel = document.getElementById('chatPanel');
+    
+    if (!mobileChatToggle) return;
+    
+    if (window.innerWidth <= 768) {
+        mobileChatToggle.style.display = 'flex';
+        mobileChatToggle.classList.remove('hidden');
+        
+        // Remove existing listeners to avoid duplicates
+        const newToggle = mobileChatToggle.cloneNode(true);
+        mobileChatToggle.parentNode.replaceChild(newToggle, mobileChatToggle);
+        const freshToggle = document.getElementById('mobileChatToggle');
+        
+        freshToggle.onclick = (e) => {
+            e.stopPropagation();
+            chatPanel.classList.toggle('mobile-open');
+            if (chatPanel.classList.contains('mobile-open')) {
+                freshToggle.classList.add('hidden');
+            } else {
+                freshToggle.classList.remove('hidden');
+            }
+        };
+        
+        // Close chat when clicking outside
+        const closeChatHandler = (e) => {
+            if (chatPanel.classList.contains('mobile-open')) {
+                if (!chatPanel.contains(e.target) && e.target !== freshToggle) {
+                    chatPanel.classList.remove('mobile-open');
+                    freshToggle.classList.remove('hidden');
+                }
+            }
+        };
+        
+        document.removeEventListener('click', closeChatHandler);
+        document.addEventListener('click', closeChatHandler);
+        
+        // Handle leave button
+        const leaveBtn = document.getElementById('leaveBtn');
+        if (leaveBtn) {
+            const oldLeaveClick = leaveBtn.onclick;
+            leaveBtn.onclick = () => {
+                chatPanel.classList.remove('mobile-open');
+                if (freshToggle) freshToggle.classList.remove('hidden');
+                if (oldLeaveClick) oldLeaveClick();
+                location.reload();
+            };
+        }
+    } else {
+        mobileChatToggle.style.display = 'none';
+    }
+}
+
+// Auto-hide PDF zoom hint
+setTimeout(() => {
+    const hint = document.getElementById('pdfZoomHint');
+    if (hint) hint.style.display = 'none';
+}, 4000);
+
+// Handle orientation change with scroll position preservation
+function handleOrientationChange() {
+    saveScrollPosition();
+    setTimeout(() => {
+        if (pdfDoc) {
+            renderPDFPage().then(() => {
+                restoreScrollPosition();
+            });
+        }
+        if (canvas) {
+            const container = canvas.parentElement;
+            if (window.innerWidth <= 768) {
+                container.style.overflow = 'auto';
+            } else {
+                container.style.overflow = 'hidden';
+            }
+        }
+    }, 100);
+}
+
+window.addEventListener('resize', () => {
+    initMobileChatToggle();
+    saveScrollPosition();
+    if (pdfDoc) {
+        setTimeout(() => {
+            renderPDFPage().then(() => {
+                restoreScrollPosition();
+            });
+        }, 100);
+    }
+});
+
+window.addEventListener('orientationchange', handleOrientationChange);
+
+// ============ SOCKET ============
+function initSocket() {
+    socket = io();
+    
+    socket.on('connect', () => {
+        console.log('Socket connected');
+        socket.emit('login', currentUser);
+    });
+    
+    socket.on('room-created', (data) => {
+        currentRoomId = data.roomId;
+        document.getElementById('roomIdDisplay').textContent = data.roomId;
+        sessionStartTime = Date.now();
+        startTimer();
+        showPage('board');
+        initCanvas();
+        setupTools();
+        setupCalculator();
+        initCollapse();
+        initMobile();
+        initMobileChatToggle();
+        toast(`Room created: ${data.roomId}`);
+    });
+    
+    socket.on('room-joined', (data) => {
+        currentRoomId = data.roomId;
+        document.getElementById('roomIdDisplay').textContent = data.roomId;
+        sessionStartTime = Date.now();
+        startTimer();
+        showPage('board');
+        initCanvas();
+        setupTools();
+        setupCalculator();
+        initCollapse();
+        initMobile();
+        initMobileChatToggle();
+        if (data.drawings) data.drawings.forEach(d => drawRemote(d));
+        if (data.messages) data.messages.forEach(m => addMessageToChat(m));
+        if (data.currentPdf) loadPDFFromData(data.currentPdf);
+        const countEl = document.getElementById('chatParticipantCount');
+        if (countEl) countEl.textContent = data.participantsCount || 1;
+        toast(`Joined room: ${data.roomId}`);
+    });
+    
+    socket.on('draw', drawRemote);
+    socket.on('clear-drawings', () => clearBoard());
+    socket.on('chat-message', (msg) => addMessageToChat(msg));
+    socket.on('user-joined', (u) => {
+        addSystemMessageToChat(`${u.name} joined`);
+        const countEl = document.getElementById('chatParticipantCount');
+        if (countEl) {
+            let count = parseInt(countEl.textContent) || 1;
+            countEl.textContent = count + 1;
+        }
+    });
+    socket.on('user-left', () => {
+        addSystemMessageToChat(`User left`);
+        const countEl = document.getElementById('chatParticipantCount');
+        if (countEl) {
+            let count = parseInt(countEl.textContent) || 2;
+            countEl.textContent = Math.max(1, count - 1);
+        }
+    });
+    socket.on('pdf-loaded', ({ pdfData }) => loadPDFFromData(pdfData));
+    socket.on('pdf-cleared', () => {
+        pdfDoc = null;
+        pdfImage = null;
+        document.getElementById('pdfNav').style.display = 'none';
+        clearBoard();
+        toast('PDF removed');
+    });
+    socket.on('pdf-page-change', ({ pageNum }) => {
+        if (pdfDoc && pageNum !== currentPage) {
+            saveScrollPosition();
+            currentPage = pageNum;
+            renderPDFPage().then(() => {
+                restoreScrollPosition();
+            });
+        }
+    });
+    socket.on('error', (e) => toast(e));
+}
+
+// ============ TIMER ============
+function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        const elapsed = Date.now() - sessionStartTime;
+        const remaining = 3 * 60 * 60 * 1000 - elapsed;
+        if (remaining <= 0) {
+            clearInterval(timerInterval);
+            document.getElementById('timerDisplay').textContent = '0:00:00';
+            toast('Session ended!');
+            setTimeout(() => location.reload(), 3000);
+            return;
+        }
+        const hours = Math.floor(remaining / 3600000);
+        const minutes = Math.floor((remaining % 3600000) / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        document.getElementById('timerDisplay').textContent = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }, 1000);
+}
+
+// ============ CANVAS ============
+function initCanvas() {
+    const c = document.getElementById('mainCanvas');
+    const container = c.parentElement;
+    
+    function resizeCanvas() {
+        c.width = container.clientWidth;
+        c.height = container.clientHeight;
+        canvas = c;
+        ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        if (pdfImage) {
+            const img = new Image();
+            img.onload = () => {
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const x = (canvas.width - img.width * scale) / 2;
+                const y = (canvas.height - img.height * scale) / 2;
+                ctx.drawImage(img, x, y);
+            };
+            img.src = pdfImage;
+        }
+    }
+    
+    resizeCanvas();
+    window.addEventListener('resize', () => setTimeout(resizeCanvas, 100));
+    
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width / rect.width;
+        const sy = canvas.height / rect.height;
+        let cx, cy;
+        if (e.touches) {
+            cx = e.touches[0].clientX;
+            cy = e.touches[0].clientY;
+        } else {
+            cx = e.clientX;
+            cy = e.clientY;
+        }
+        return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
+    }
+    
     function start(e) {
         e.preventDefault();
         drawing = true;
-        const pos = getCoords(e);
-        lastX = pos.x; lastY = pos.y;
+        const p = getPos(e);
+        lastX = p.x; lastY = p.y;
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
     }
-
+    
     function draw(e) {
         if (!drawing) return;
         e.preventDefault();
-        const pos = getCoords(e);
-        ctx.strokeStyle = isErasing ? '#fff' : currentColor;
-        ctx.lineWidth = currentSize;
-        ctx.lineTo(pos.x, pos.y);
+        const p = getPos(e);
+        
+        if (isHighlighting) {
+            ctx.strokeStyle = 'rgba(255,255,0,0.4)';
+            ctx.lineWidth = 20;
+        } else if (isErasing) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 20;
+        } else {
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = currentSize;
+        }
+        
+        ctx.lineTo(p.x, p.y);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-        socket?.emit('draw', { fromX: lastX, fromY: lastY, toX: pos.x, toY: pos.y, color: isErasing ? '#fff' : currentColor, size: currentSize });
-        lastX = pos.x; lastY = pos.y;
+        ctx.moveTo(p.x, p.y);
+        socket?.emit('draw', { fromX: lastX, fromY: lastY, toX: p.x, toY: p.y, color: currentColor, size: currentSize });
+        lastX = p.x; lastY = p.y;
     }
-
+    
     function stop() { drawing = false; ctx.beginPath(); }
-
+    
     canvas.addEventListener('mousedown', start);
     canvas.addEventListener('mousemove', draw);
     canvas.addEventListener('mouseup', stop);
@@ -83,122 +495,185 @@ function initCanvas() {
     canvas.addEventListener('touchend', stop);
 }
 
-function drawRemote(data) {
+function drawRemote(d) {
+    if (!ctx) return;
     ctx.beginPath();
-    ctx.moveTo(data.fromX, data.fromY);
-    ctx.lineTo(data.toX, data.toY);
-    ctx.strokeStyle = data.color;
-    ctx.lineWidth = data.size;
+    ctx.moveTo(d.fromX, d.fromY);
+    ctx.lineTo(d.toX, d.toY);
+    ctx.strokeStyle = d.color;
+    ctx.lineWidth = d.size;
     ctx.stroke();
 }
 
-function clearCanvas() {
+function clearBoard() {
+    if (!ctx) return;
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (pdfImageData) {
+    if (pdfImage) {
         const img = new Image();
-        img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        img.src = pdfImageData;
+        img.onload = () => {
+            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+            const x = (canvas.width - img.width * scale) / 2;
+            const y = (canvas.height - img.height * scale) / 2;
+            ctx.drawImage(img, x, y);
+        };
+        img.src = pdfImage;
     }
 }
 
-// ============ PDF FUNCTIONS ============
-async function loadPDF(dataURL) {
-    showToast('Loading PDF...');
+// ============ PDF ============
+async function loadPDFFromData(dataUrl) {
+    toast('Loading PDF...');
     try {
-        let base64 = dataURL.includes(',') ? dataURL.split(',')[1] : dataURL;
+        const base64 = dataUrl.split(',')[1];
         const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        
         pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
         totalPages = pdfDoc.numPages;
         currentPage = 1;
-        pdfControls.style.display = 'block';
-        pageIndicator.textContent = `Page 1 / ${totalPages}`;
+        document.getElementById('pdfNav').style.display = 'block';
+        document.getElementById('pageIndicator').innerHTML = `Page 1 / ${totalPages}`;
         await renderPDFPage();
-        showToast(`PDF loaded: ${totalPages} pages`);
-    } catch(e) { showToast('PDF load failed', 'error'); }
+        toast(`PDF loaded: ${totalPages} pages`);
+    } catch(e) { toast('PDF error'); }
 }
 
 async function renderPDFPage() {
-    const page = await pdfDoc.getPage(currentPage);
-    const scale = Math.min(canvas.width / page.getViewport({ scale: 1 }).width, canvas.height / page.getViewport({ scale: 1 }).height);
-    const viewport = page.getViewport({ scale: scale });
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = viewport.width;
-    tempCanvas.height = viewport.height;
-    await page.render({ canvasContext: tempCanvas.getContext('2d'), viewport }).promise;
+    if (!pdfDoc) return;
     
-    pdfImageData = tempCanvas.toDataURL();
-    const img = new Image();
-    img.onload = () => {
-        const x = (canvas.width - img.width) / 2;
-        const y = (canvas.height - img.height) / 2;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, x, y);
-    };
-    img.src = pdfImageData;
-    pageIndicator.textContent = `Page ${currentPage} / ${totalPages}`;
+    return new Promise(async (resolve) => {
+        const page = await pdfDoc.getPage(currentPage);
+        const container = canvas.parentElement;
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        
+        // Calculate scale
+        const viewport = page.getViewport({ scale: 1 });
+        let scale;
+        if (window.innerWidth <= 768) {
+            // Mobile: fit width, allow vertical scroll
+            scale = containerWidth / viewport.width;
+        } else {
+            // Desktop: fit both dimensions
+            const scaleX = containerWidth / viewport.width;
+            const scaleY = containerHeight / viewport.height;
+            scale = Math.min(scaleX, scaleY);
+        }
+        
+        const scaledViewport = page.getViewport({ scale: scale });
+        
+        // Set canvas dimensions
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        canvas.style.width = `${scaledViewport.width}px`;
+        canvas.style.height = `${scaledViewport.height}px`;
+        
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = scaledViewport.width;
+        tempCanvas.height = scaledViewport.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        await page.render({ canvasContext: tempCtx, viewport: scaledViewport }).promise;
+        
+        pdfImage = tempCanvas.toDataURL();
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            
+            // Center horizontally on mobile
+            if (window.innerWidth <= 768) {
+                const container = canvas.parentElement;
+                if (canvas.width > container.clientWidth) {
+                    container.scrollLeft = (canvas.width - container.clientWidth) / 2;
+                }
+                container.scrollTop = 0;
+            }
+            resolve();
+        };
+        img.src = pdfImage;
+        
+        document.getElementById('pageIndicator').innerHTML = `Page ${currentPage} / ${totalPages}`;
+    });
 }
 
-function nextPage() { if (currentPage < totalPages) { currentPage++; renderPDFPage(); socket?.emit('pdf-page-change', { pageNum: currentPage }); } }
-function prevPage() { if (currentPage > 1) { currentPage--; renderPDFPage(); socket?.emit('pdf-page-change', { pageNum: currentPage }); } }
+function nextPage() { 
+    if (currentPage < totalPages) { 
+        saveScrollPosition();
+        currentPage++; 
+        renderPDFPage().then(() => {
+            restoreScrollPosition();
+        });
+        socket?.emit('pdf-page-change', { pageNum: currentPage });
+    } 
+}
+
+function prevPage() { 
+    if (currentPage > 1) { 
+        saveScrollPosition();
+        currentPage--; 
+        renderPDFPage().then(() => {
+            restoreScrollPosition();
+        });
+        socket?.emit('pdf-page-change', { pageNum: currentPage });
+    } 
+}
 
 // ============ CALCULATOR ============
-function evaluateExpression(expr) {
+function evalExpr(expr) {
     try {
-        let processed = expr.replace(/π/g, 'Math.PI').replace(/e(?![a-z])/g, 'Math.E')
+        let p = expr.replace(/π/g, 'Math.PI').replace(/e/g, 'Math.E')
             .replace(/sin\(/g, 'Math.sin(').replace(/cos\(/g, 'Math.cos(').replace(/tan\(/g, 'Math.tan(')
             .replace(/sqrt\(/g, 'Math.sqrt(').replace(/log\(/g, 'Math.log10(').replace(/ln\(/g, 'Math.log(')
             .replace(/\^/g, '**').replace(/×/g, '*').replace(/÷/g, '/');
-        const result = Function('"use strict";return (' + processed + ')')();
-        return isNaN(result) ? 'Error' : result;
+        let r = Function('"use strict";return (' + p + ')')();
+        return isNaN(r) ? 'Error' : r;
     } catch(e) { return 'Error'; }
 }
 
-function updateCalcDisplay() { calcDisplay.textContent = calcExpression || '0'; }
+function updateCalc() { if (calcScreen) calcScreen.textContent = calcExpr || '0'; }
 
 function setupCalculator() {
-    document.querySelectorAll('.calc-btn[data-num]').forEach(btn => {
-        btn.onclick = () => { calcExpression += btn.dataset.num; updateCalcDisplay(); };
+    if (!calcScreen) return;
+    document.querySelectorAll('.calc-key[data-num]').forEach(btn => {
+        btn.onclick = () => { calcExpr += btn.dataset.num; updateCalc(); };
     });
-    document.querySelectorAll('.calc-btn[data-op]').forEach(btn => {
-        btn.onclick = () => { calcExpression += btn.dataset.op; updateCalcDisplay(); };
+    document.querySelectorAll('.calc-key[data-op]').forEach(btn => {
+        btn.onclick = () => { calcExpr += btn.dataset.op; updateCalc(); };
     });
-    document.querySelectorAll('.calc-btn[data-dot]').forEach(btn => {
-        btn.onclick = () => { calcExpression += '.'; updateCalcDisplay(); };
+    document.querySelectorAll('.calc-key[data-dot]').forEach(btn => {
+        btn.onclick = () => { calcExpr += '.'; updateCalc(); };
     });
-    document.querySelector('.calc-btn[data-action="clear"]').onclick = () => { calcExpression = ''; updateCalcDisplay(); };
-    document.querySelector('.calc-btn[data-action="del"]').onclick = () => { calcExpression = calcExpression.slice(0, -1); updateCalcDisplay(); };
-    document.querySelector('.calc-btn[data-action="equals"]').onclick = () => {
-        const result = evaluateExpression(calcExpression);
-        calcExpression = result.toString();
-        updateCalcDisplay();
-        showToast(`Result: ${result}`);
-    };
-    document.querySelectorAll('.calc-btn[data-func]').forEach(btn => {
+    document.querySelector('.calc-key[data-action="clear"]')?.addEventListener('click', () => { calcExpr = ''; updateCalc(); });
+    document.querySelector('.calc-key[data-action="del"]')?.addEventListener('click', () => { calcExpr = calcExpr.slice(0, -1); updateCalc(); });
+    document.querySelector('.calc-key[data-action="equals"]')?.addEventListener('click', () => {
+        const r = evalExpr(calcExpr);
+        calcExpr = r.toString();
+        updateCalc();
+        toast(`Result: ${r}`);
+    });
+    document.querySelectorAll('.calc-key.func').forEach(btn => {
         btn.onclick = () => {
-            const func = btn.dataset.func;
-            if (func === 'pi') calcExpression += 'π';
-            else if (func === 'e') calcExpression += 'e';
-            else if (func === 'sqrt') calcExpression += 'sqrt(';
-            else calcExpression += `${func}(`;
-            updateCalcDisplay();
+            const f = btn.dataset.func;
+            if (f === 'pi') calcExpr += 'π';
+            else if (f === 'e') calcExpr += 'e';
+            else if (f === 'sqrt') calcExpr += 'sqrt(';
+            else if (f === 'square') calcExpr += '^2';
+            else if (f === 'cube') calcExpr += '^3';
+            else calcExpr += `${f}(`;
+            updateCalc();
         };
     });
-    document.getElementById('calc-copy').onclick = () => {
-        if (calcExpression && calcExpression !== '0') {
-            const result = evaluateExpression(calcExpression);
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
+    document.getElementById('copyCalcResult')?.addEventListener('click', () => {
+        if (calcExpr && calcExpr !== '0' && ctx) {
+            const r = evalExpr(calcExpr);
             ctx.font = '24px Arial';
             ctx.fillStyle = '#000';
-            ctx.fillText(result.toString(), centerX, centerY);
-            showToast(`Copied: ${result}`);
+            ctx.fillText(r.toString(), canvas.width / 2, canvas.height / 2);
+            toast(`Copied: ${r}`);
         }
-    };
+    });
 }
 
 // ============ TOOLS ============
@@ -209,139 +684,141 @@ function setupTools() {
             el.classList.add('active');
             currentColor = el.dataset.color;
             isErasing = false;
-            document.getElementById('draw-mode').classList.add('active');
-            document.getElementById('eraser-mode').classList.remove('active');
+            isHighlighting = false;
+            document.getElementById('drawBtn').classList.add('active');
+            document.getElementById('highlighterBtn').classList.remove('active');
+            document.getElementById('eraserBtn').classList.remove('active');
         };
     });
-    document.querySelectorAll('.color')[0].classList.add('active');
-
-    const sizeSlider = document.getElementById('brush-size');
-    sizeSlider.oninput = (e) => { currentSize = parseInt(e.target.value); document.getElementById('size-display').textContent = `Size: ${currentSize}px`; };
     
-    document.getElementById('draw-mode').onclick = () => { isErasing = false; document.getElementById('draw-mode').classList.add('active'); document.getElementById('eraser-mode').classList.remove('active'); showToast('Draw mode'); };
-    document.getElementById('eraser-mode').onclick = () => { isErasing = true; document.getElementById('eraser-mode').classList.add('active'); document.getElementById('draw-mode').classList.remove('active'); showToast('Eraser mode'); };
-    document.getElementById('clear-canvas').onclick = () => { clearCanvas(); socket?.emit('clear-drawings'); showToast('Board cleared'); };
+    document.getElementById('brushSlider')?.addEventListener('input', (e) => {
+        currentSize = parseInt(e.target.value);
+        document.getElementById('sizeDisplay').innerHTML = `Size: ${currentSize}px`;
+    });
     
-    // PDF upload
-    document.getElementById('pdf-upload-btn').onclick = () => document.getElementById('pdf-upload').click();
-    document.getElementById('pdf-upload').onchange = (e) => {
+    document.getElementById('drawBtn')?.addEventListener('click', () => {
+        isErasing = false;
+        isHighlighting = false;
+        document.getElementById('drawBtn').classList.add('active');
+        document.getElementById('highlighterBtn').classList.remove('active');
+        document.getElementById('eraserBtn').classList.remove('active');
+    });
+    
+    document.getElementById('highlighterBtn')?.addEventListener('click', () => {
+        isHighlighting = true;
+        isErasing = false;
+        document.getElementById('highlighterBtn').classList.add('active');
+        document.getElementById('drawBtn').classList.remove('active');
+        document.getElementById('eraserBtn').classList.remove('active');
+    });
+    
+    document.getElementById('eraserBtn')?.addEventListener('click', () => {
+        isErasing = true;
+        isHighlighting = false;
+        document.getElementById('eraserBtn').classList.add('active');
+        document.getElementById('drawBtn').classList.remove('active');
+        document.getElementById('highlighterBtn').classList.remove('active');
+    });
+    
+    document.getElementById('clearBtn')?.addEventListener('click', () => {
+        clearBoard();
+        socket?.emit('clear-drawings');
+        toast('Board cleared');
+    });
+    
+    document.getElementById('uploadPdfBtn')?.addEventListener('click', () => document.getElementById('pdfFile').click());
+    document.getElementById('pdfFile')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = async (ev) => {
-            const data = ev.target.result;
-            await loadPDF(data);
-            socket?.emit('pdf-loaded', { pdfData: data });
+            await loadPDFFromData(ev.target.result);
+            socket?.emit('pdf-loaded', { pdfData: ev.target.result });
         };
         reader.readAsDataURL(file);
-    };
-    document.getElementById('clear-pdf').onclick = () => {
-        pdfDoc = null; pdfImageData = null;
-        pdfControls.style.display = 'none';
-        clearCanvas();
+    });
+    document.getElementById('removePdfBtn')?.addEventListener('click', () => {
+        pdfDoc = null;
+        pdfImage = null;
+        document.getElementById('pdfNav').style.display = 'none';
+        clearBoard();
         socket?.emit('pdf-cleared');
-        showToast('PDF removed');
-    };
-    document.getElementById('pdf-prev').onclick = prevPage;
-    document.getElementById('pdf-next').onclick = nextPage;
-    
-    // Copy room code
-    document.getElementById('copy-room-btn').onclick = () => {
+        toast('PDF removed');
+    });
+    document.getElementById('prevPdfBtn')?.addEventListener('click', prevPage);
+    document.getElementById('nextPdfBtn')?.addEventListener('click', nextPage);
+    document.getElementById('copyCodeBtn')?.addEventListener('click', () => {
         navigator.clipboard.writeText(currentRoomId);
-        showToast('Room code copied!');
-    };
+        toast('Room code copied!');
+    });
 }
 
 // ============ CHAT ============
-function linkify(text) {
-    return text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-}
-
-function addMessage(msg) {
+function addMessageToChat(msg) {
+    const chatContainer = document.getElementById('chatMessages');
+    if (!chatContainer) return;
+    
     const div = document.createElement('div');
     div.className = `message ${msg.userId === socket?.id ? 'own' : ''}`;
-    const time = new Date(msg.timestamp).toLocaleTimeString();
-    div.innerHTML = `<div class="message-name">${escapeHtml(msg.userName)} <span class="message-time">${time}</span></div>${linkify(escapeHtml(msg.message))}`;
-    document.getElementById('chat-messages').appendChild(div);
+    const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    div.innerHTML = `<div class="message-name">${msg.userName} <span class="message-time">${time}</span></div>${msg.message}`;
+    chatContainer.appendChild(div);
     div.scrollIntoView();
 }
 
-function addSystemMessage(msg) {
+function addSystemMessageToChat(msg) {
+    const chatContainer = document.getElementById('chatMessages');
+    if (!chatContainer) return;
+    
     const div = document.createElement('div');
-    div.className = 'system-message';
-    div.textContent = msg;
-    document.getElementById('chat-messages').appendChild(div);
+    div.style.cssText = 'background:#fef5e7; color:#d69e2e; padding:8px; border-radius:12px; text-align:center; margin:8px 0;';
+    div.innerHTML = msg;
+    chatContainer.appendChild(div);
     div.scrollIntoView();
 }
 
-function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
-
-// ============ SOCKET ============
-function initSocket() {
-    socket = io();
-    socket.on('connect', () => socket.emit('login', currentUser));
-    socket.on('room-created', (data) => { 
-        currentRoomId = data.roomId; 
-        document.getElementById('room-id').textContent = data.roomId; 
-        showScreen('board-screen'); 
-        initCanvas(); 
-        setupTools(); 
-        setupCalculator();
-        showToast(`Room created: ${data.roomId}`);
-        addSystemMessage(`Room code: ${data.roomId} - Share this with others to join`);
-    });
-    socket.on('room-joined', (data) => { 
-        currentRoomId = data.roomId; 
-        document.getElementById('room-id').textContent = data.roomId; 
-        showScreen('board-screen'); 
-        initCanvas(); 
-        setupTools();
-        setupCalculator();
-        data.drawings.forEach(d => drawRemote(d)); 
-        data.messages.forEach(m => addMessage(m)); 
-        showToast(`Joined room: ${data.roomId}`);
-        addSystemMessage(`You joined room ${data.roomId}`);
-    });
-    socket.on('draw', (d) => drawRemote(d));
-    socket.on('clear-drawings', () => clearCanvas());
-    socket.on('chat-message', (m) => addMessage(m));
-    socket.on('user-joined', (u) => addSystemMessage(`${u.name} joined the session`));
-    socket.on('user-left', () => addSystemMessage(`User left the session`));
-    socket.on('pdf-loaded', (d) => loadPDF(d.pdfData));
-    socket.on('pdf-cleared', () => { pdfDoc = null; pdfImageData = null; pdfControls.style.display = 'none'; clearCanvas(); showToast('PDF removed by tutor'); });
-    socket.on('pdf-page-change', (d) => { if (pdfDoc && d.pageNum !== currentPage) { currentPage = d.pageNum; renderPDFPage(); } });
-    socket.on('error', (e) => showToast(e));
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    if (!socket) {
+        toast('Not connected');
+        return;
+    }
+    socket.emit('chat-message', msg);
+    input.value = '';
 }
 
-// ============ AUTH ============
-document.getElementById('login-tab').onclick = () => {
-    document.getElementById('login-tab').classList.add('active');
-    document.getElementById('register-tab').classList.remove('active');
-    document.getElementById('login-form').classList.add('active');
-    document.getElementById('register-form').classList.remove('active');
-};
-document.getElementById('register-tab').onclick = () => {
-    document.getElementById('register-tab').classList.add('active');
-    document.getElementById('login-tab').classList.remove('active');
-    document.getElementById('register-form').classList.add('active');
-    document.getElementById('login-form').classList.remove('active');
-};
-document.getElementById('do-login').onclick = async () => {
-    const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('login-username').value, password: document.getElementById('login-password').value }) });
-    const data = await res.json();
-    if (data.success) { currentUser = data.user; document.getElementById('user-avatar').src = currentUser.avatar; document.getElementById('user-name').textContent = currentUser.name; initSocket(); showScreen('join-screen'); showToast(`Welcome, ${currentUser.name}!`); }
-    else showToast(data.error);
-};
-document.getElementById('do-register').onclick = async () => {
-    if (document.getElementById('reg-password').value !== document.getElementById('reg-confirm').value) return showToast('Passwords mismatch');
-    const res = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('reg-username').value, password: document.getElementById('reg-password').value, name: document.getElementById('reg-name').value }) });
-    const data = await res.json();
-    if (data.success) { showToast('Registered! Please login'); document.getElementById('login-tab').click(); }
-    else showToast(data.error);
-};
-document.getElementById('logout-btn').onclick = () => location.reload();
-document.getElementById('leave-btn').onclick = () => location.reload();
-document.getElementById('create-btn').onclick = () => { if (!socket) initSocket(); setTimeout(() => socket.emit('create-room'), 500); };
-document.getElementById('join-btn').onclick = () => { const code = document.getElementById('room-code-input').value; if (!code) return showToast('Enter room code'); if (!socket) initSocket(); setTimeout(() => socket.emit('join-room', code), 500); };
-document.getElementById('send-chat').onclick = () => { const input = document.getElementById('chat-input'); const msg = input.value.trim(); if (msg) { socket.emit('chat-message', msg); input.value = ''; } };
-document.getElementById('chat-input').onkeypress = (e) => { if (e.key === 'Enter') document.getElementById('send-chat').click(); };
+// Wire up chat button
+const sendChatBtn = document.getElementById('sendChatBtn');
+const chatInputField = document.getElementById('chatInput');
+if (sendChatBtn) sendChatBtn.onclick = sendChatMessage;
+if (chatInputField) chatInputField.onkeypress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
+
+// ============ MOBILE ============
+let sidebarOpen = false, chatOpen = false;
+function initMobile() {
+    const menuBtn = document.getElementById('menuBtn');
+    const sidebar = document.getElementById('sidebar');
+    const chatPanel = document.getElementById('chatPanel');
+    if (menuBtn) {
+        menuBtn.onclick = () => {
+            sidebarOpen = !sidebarOpen;
+            sidebar.classList.toggle('mobile-open', sidebarOpen);
+            if (sidebarOpen && chatOpen) { chatPanel.classList.remove('mobile-open'); chatOpen = false; }
+        };
+    }
+    const chatHeader = document.querySelector('.chat-header');
+    if (chatHeader) {
+        chatHeader.onclick = () => {
+            chatOpen = !chatOpen;
+            chatPanel.classList.toggle('mobile-open', chatOpen);
+            if (chatOpen && sidebarOpen) { sidebar.classList.remove('mobile-open'); sidebarOpen = false; }
+        };
+    }
+}
+
+// Initialize
+initMobile();
+setupCalculator();
+console.log('MathsBoard Pro - Complete version ready');
