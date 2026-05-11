@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#667eea">
     
     <!-- SEO Meta Tags -->
-    <title>MathsBoard Pro | Collaborative Whiteboard for Math Tutoring</title>
+    <title>MathsBoard Pro | Collaborative Whiteboard for Math Tutoring with Prof. Tlhogii</title>
     <meta name="description" content="Professional collaborative whiteboard for math tutoring. Real-time drawing, PDF annotation, scientific calculator, and chat. Perfect for online math education.">
     <meta name="keywords" content="math whiteboard, online tutoring, collaborative whiteboard, math education, digital classroom, PDF annotation, scientific calculator">
     <meta name="author" content="MathsBoard Pro">
@@ -968,6 +968,121 @@
     </style>
 </head>
 <body>
+    <!-- ========================================== -->
+    <!-- MOBILE DEVICE BLOCK - DESKTOP ONLY        -->
+    <!-- ========================================== -->
+    <script>
+        (function() {
+            // Check for mobile devices
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isTablet = /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent);
+            
+            if (isMobile || isTablet) {
+                // Store the attempted URL
+                localStorage.setItem('attemptedUrl', window.location.href);
+                
+                // Replace entire page with block message
+                document.body.innerHTML = `
+                    <div style="
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 9999;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    ">
+                        <div style="
+                            background: rgba(255, 255, 255, 0.95);
+                            backdrop-filter: blur(20px);
+                            border-radius: 32px;
+                            padding: 40px 32px;
+                            max-width: 400px;
+                            text-align: center;
+                            margin: 20px;
+                            box-shadow: 0 25px 45px rgba(0,0,0,0.2);
+                            border: 1px solid rgba(255,255,255,0.3);
+                        ">
+                            <div style="font-size: 80px; margin-bottom: 20px;">
+                                💻
+                            </div>
+                            <h1 style="color: #667eea; margin-bottom: 16px; font-size: 28px;">
+                                Desktop Required
+                            </h1>
+                            <p style="color: #333; margin-bottom: 24px; line-height: 1.5; font-size: 16px;">
+                                MathsBoard Pro is optimized for desktop computers.<br><br>
+                                Please open this site on a <strong>laptop or desktop computer</strong> for the complete experience.
+                            </p>
+                            <div style="background: #f0f0f0; border-radius: 16px; padding: 16px; margin-bottom: 24px;">
+                                <p style="color: #666; font-size: 14px; margin-bottom: 8px;">
+                                    📐 Desktop features:
+                                </p>
+                                <p style="color: #333; font-size: 13px;">
+                                    ✓ Full whiteboard drawing<br>
+                                    ✓ PDF annotation with page navigation<br>
+                                    ✓ Scientific calculator<br>
+                                    ✓ Real-time chat<br>
+                                    ✓ Screen sharing
+                                </p>
+                            </div>
+                            <button id="copyUrlBtn" style="
+                                background: #667eea;
+                                color: white;
+                                border: none;
+                                padding: 14px 24px;
+                                border-radius: 50px;
+                                font-size: 16px;
+                                font-weight: 600;
+                                cursor: pointer;
+                                width: 100%;
+                                margin-bottom: 12px;
+                                transition: transform 0.1s;
+                            ">📋 Copy Link to Share</button>
+                            <button id="refreshBtn" style="
+                                background: transparent;
+                                color: #667eea;
+                                border: 1px solid #667eea;
+                                padding: 12px 24px;
+                                border-radius: 50px;
+                                font-size: 14px;
+                                cursor: pointer;
+                                width: 100%;
+                            ">🔄 Reload if on Desktop</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Copy link functionality
+                const copyBtn = document.getElementById('copyUrlBtn');
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', () => {
+                        navigator.clipboard.writeText(window.location.href);
+                        alert('Link copied! Share it to open on desktop.');
+                    });
+                }
+                
+                // Reload button (in case user switches to desktop user agent)
+                const reloadBtn = document.getElementById('refreshBtn');
+                if (reloadBtn) {
+                    reloadBtn.addEventListener('click', () => {
+                        localStorage.removeItem('attemptedUrl');
+                        location.reload();
+                    });
+                }
+                
+                // Stop further execution
+                throw new Error('Mobile device blocked - desktop only');
+            }
+        })();
+    </script>
+    <!-- ========================================== -->
+    <!-- END MOBILE DEVICE BLOCK                    -->
+    <!-- ========================================== -->
+
     <!-- Auth Container -->
     <div id="authContainer" class="auth-container">
         <div class="glass-card">
