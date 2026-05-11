@@ -502,6 +502,380 @@ function setupTools() {
     });
 }
 
+
+   // ============ MATH SHAPES & DRAWING TOOLS ============
+let shapeDrawing = false;
+let shapeStartX, shapeStartY;
+let currentShape = null;
+let precisionMode = false;
+
+// Shape drawing
+function drawShape(type, x1, y1, x2, y2) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = currentColor;
+    ctx.fillStyle = 'rgba(102,126,234,0.2)';
+    ctx.lineWidth = currentSize;
+    
+    const width = x2 - x1;
+    const height = y2 - y1;
+    
+    switch(type) {
+        case 'circle':
+            const radius = Math.sqrt(width * width + height * height) / 2;
+            ctx.arc(x1 + width/2, y1 + height/2, radius, 0, 2 * Math.PI);
+            break;
+        case 'square':
+            const size = Math.min(Math.abs(width), Math.abs(height));
+            ctx.rect(x1, y1, size * Math.sign(width), size * Math.sign(height));
+            break;
+        case 'triangle':
+            ctx.moveTo(x1 + width/2, y1);
+            ctx.lineTo(x1, y1 + height);
+            ctx.lineTo(x1 + width, y1 + height);
+            ctx.closePath();
+            break;
+        case 'rectangle':
+            ctx.rect(x1, y1, width, height);
+            break;
+        case 'line':
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            break;
+        case 'arrow':
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const arrowSize = 15;
+            const arrowX = x2 - arrowSize * Math.cos(angle);
+            const arrowY = y2 - arrowSize * Math.sin(angle);
+            ctx.moveTo(arrowX - 5 * Math.sin(angle), arrowY + 5 * Math.cos(angle));
+            ctx.lineTo(x2, y2);
+            ctx.lineTo(arrowX + 5 * Math.sin(angle), arrowY - 5 * Math.cos(angle));
+            break;
+    }
+    ctx.stroke();
+    if (type !== 'line' && type !== 'arrow') {
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
+// Shape tool event listeners
+document.querySelectorAll('.math-tool').forEach(btn => {
+    btn.addEventListener('click', () => {
+        currentShape = btn.dataset.shape;
+        toast(`${currentShape} tool selected - click and drag on canvas`);
+        
+        // Temporarily disable normal drawing
+        const oldDraw = draw;
+        canvas.addEventListener('mousedown', startShapeDraw);
+        canvas.addEventListener('mouseup', endShapeDraw);
+    });
+});
+
+function startShapeDraw(e) {
+    shapeDrawing = true;
+    const pos = getCanvasCoords(e);
+    shapeStartX = pos.x;
+    shapeStartY = pos.y;
+}
+
+function endShapeDraw(e) {
+    if (!shapeDrawing) return;
+    const pos = getCanvasCoords(e);
+    drawShape(currentShape, shapeStartX, shapeStartY, pos.x, pos.y);
+    shapeDrawing = false;
+    
+    // Sync with other users
+    socket.emit('draw-shape', {
+        roomId: currentRoomId,
+        shape: currentShape,
+        x1: shapeStartX, y1: shapeStartY,
+        x2: pos.x, y2: pos.y,
+        color: currentColor,
+        size: currentSize
+    });
+}
+
+function getCanvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    let cx, cy;
+    if (e.touches) {
+        cx = e.touches[0].clientX;
+        cy = e.touches[0].clientY;
+    } else {
+        cx = e.clientX;
+        cy = e.clientY;
+    }
+    return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
+}
+
+// ============ TEMPLATES ============
+function drawGraphPaper() {
+    const spacing = 40;
+    ctx.save();
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 0.5;
+    for (let x = spacing; x < canvas.width; x += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+    for (let y = spacing; y < canvas.height; y += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+    // Main axes
+    ctx.beginPath();
+    ctx.moveTo(canvas.width/2, 0);
+    ctx.lineTo(canvas.width/2, canvas.height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height/2);
+    ctx.lineTo(canvas.width, canvas.height/2);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawNumberLine() {
+    const centerY = canvas.height / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(50, centerY);
+    ctx.lineTo(canvas.width - 50, centerY);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    for (let i = -10; i <= 10; i++) {
+        const x = (i + 10) * 60 + 50;
+        ctx.beginPath();
+        ctx.moveTo(x, centerY - 10);
+        ctx.lineTo(x, centerY + 10);
+        ctx.stroke();
+        ctx.fillStyle = '#000';
+        ctx.font = '14px Arial';
+        ctx.fillText(i, x - 5, centerY - 15);
+    }
+    ctx.restore();
+}
+
+function drawCoordinatePlane() {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    ctx.save();
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 0.5;
+    
+    for (let x = centerX; x < canvas.width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(centerX - (x - centerX), 0);
+        ctx.lineTo(centerX - (x - centerX), canvas.height);
+        ctx.stroke();
+    }
+    for (let y = centerY; y < canvas.height; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, centerY - (y - centerY));
+        ctx.lineTo(canvas.width, centerY - (y - centerY));
+        ctx.stroke();
+    }
+    
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(canvas.width, centerY);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(centerX, 0);
+    ctx.lineTo(centerX, canvas.height);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawProtractor() {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 150;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    for (let i = 0; i <= 180; i += 10) {
+        const angle = (i * Math.PI) / 180;
+        const x1 = centerX + radius * Math.cos(angle);
+        const y1 = centerY - radius * Math.sin(angle);
+        const x2 = centerX + (radius - 10) * Math.cos(angle);
+        const y2 = centerY - (radius - 10) * Math.sin(angle);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.fillStyle = '#000';
+        ctx.font = '12px Arial';
+        ctx.fillText(i, x1 - 10, y1 - 5);
+    }
+    ctx.restore();
+}
+
+function drawRuler() {
+    const startX = 50;
+    const startY = canvas.height - 50;
+    const length = canvas.width - 100;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(startX + length, startY);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    for (let i = 0; i <= 20; i++) {
+        const x = startX + (i * length / 20);
+        ctx.beginPath();
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x, startY - (i % 5 === 0 ? 20 : 10));
+        ctx.stroke();
+        if (i % 5 === 0) {
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.fillText(i, x - 5, startY - 25);
+        }
+    }
+    ctx.restore();
+}
+
+function drawTableGrid(rows, cols) {
+    const cellWidth = canvas.width / cols;
+    const cellHeight = canvas.height / rows;
+    ctx.save();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= rows; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, i * cellHeight);
+        ctx.lineTo(canvas.width, i * cellHeight);
+        ctx.stroke();
+    }
+    for (let i = 0; i <= cols; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * cellWidth, 0);
+        ctx.lineTo(i * cellWidth, canvas.height);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawMatrix(size) {
+    const cellSize = 60;
+    const startX = (canvas.width - (size * cellSize)) / 2;
+    const startY = (canvas.height - (size * cellSize)) / 2;
+    ctx.save();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    for (let i = 0; i <= size; i++) {
+        ctx.beginPath();
+        ctx.moveTo(startX + i * cellSize, startY);
+        ctx.lineTo(startX + i * cellSize, startY + size * cellSize);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(startX, startY + i * cellSize);
+        ctx.lineTo(startX + size * cellSize, startY + i * cellSize);
+        ctx.stroke();
+    }
+    ctx.fillStyle = '#000';
+    ctx.font = '20px Arial';
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+            ctx.fillText(`a${i+1}${j+1}`, startX + j * cellSize + 20, startY + i * cellSize + 40);
+        }
+    }
+    ctx.restore();
+}
+
+// Template event listeners
+document.querySelectorAll('.template-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const template = btn.dataset.template;
+        switch(template) {
+            case 'graph': drawGraphPaper(); break;
+            case 'number-line': drawNumberLine(); break;
+            case 'coordinate': drawCoordinatePlane(); break;
+            case 'protractor': drawProtractor(); break;
+            case 'ruler': drawRuler(); break;
+            case 'table': drawTableGrid(8, 12); break;
+        }
+        toast(`${template} template added`);
+    });
+});
+
+document.querySelectorAll('.table-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const table = btn.dataset.table;
+        switch(table) {
+            case 'matrix-2x2': drawMatrix(2); break;
+            case 'matrix-3x3': drawMatrix(3); break;
+            case 'function-table': drawTableGrid(5, 3); break;
+            case 'data-table': drawTableGrid(6, 4); break;
+        }
+        toast(`${table} added`);
+    });
+});
+
+document.querySelectorAll('.angle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const angle = parseInt(btn.dataset.angle);
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = 100;
+        const endX = centerX + radius * Math.cos(angle * Math.PI / 180);
+        const endY = centerY - radius * Math.sin(angle * Math.PI / 180);
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 30, 0, angle * Math.PI / 180);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#000';
+        ctx.font = '16px Arial';
+        ctx.fillText(`${angle}°`, centerX + 40, centerY - 20);
+        ctx.restore();
+        
+        toast(`${angle}° angle drawn`);
+    });
+});
+
+// ============ SOCKET SHAPE SYNC ============
+socket.on('draw-shape', (data) => {
+    drawShape(data.shape, data.x1, data.y1, data.x2, data.y2);
+});
+
+
+
 // ============ CHAT ============
 function addMessageToChat(msg) {
     const chatContainer = document.getElementById('chatMessages');
