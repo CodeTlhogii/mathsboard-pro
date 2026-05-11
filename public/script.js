@@ -875,6 +875,203 @@ socket.on('draw-shape', (data) => {
 });
 
 
+// ============ MATH SOLVER (Like Google Sheets) ============
+function evaluateMathExpression(expr) {
+    try {
+        // Replace math symbols
+        let processed = expr
+            .replace(/π/g, 'Math.PI')
+            .replace(/pi/g, 'Math.PI')
+            .replace(/e/g, 'Math.E')
+            .replace(/÷/g, '/')
+            .replace(/×/g, '*')
+            .replace(/\^/g, '**')
+            .replace(/√\(/g, 'Math.sqrt(')
+            .replace(/sqrt\(/g, 'Math.sqrt(')
+            .replace(/sin\(/g, 'Math.sin(')
+            .replace(/cos\(/g, 'Math.cos(')
+            .replace(/tan\(/g, 'Math.tan(')
+            .replace(/asin\(/g, 'Math.asin(')
+            .replace(/acos\(/g, 'Math.acos(')
+            .replace(/atan\(/g, 'Math.atan(')
+            .replace(/log\(/g, 'Math.log10(')
+            .replace(/ln\(/g, 'Math.log(')
+            .replace(/abs\(/g, 'Math.abs(')
+            .replace(/floor\(/g, 'Math.floor(')
+            .replace(/ceil\(/g, 'Math.ceil(')
+            .replace(/round\(/g, 'Math.round(')
+            .replace(/%/g, '/100');
+        
+        // Handle power
+        if (processed.includes('^')) {
+            processed = processed.replace(/\^/g, '**');
+        }
+        
+        // Evaluate
+        const result = Function('"use strict";return (' + processed + ')')();
+        
+        if (isNaN(result)) return { success: false, error: 'Invalid expression' };
+        if (!isFinite(result)) return { success: false, error: 'Result is infinite' };
+        
+        return { success: true, result: result };
+    } catch(e) {
+        return { success: false, error: e.message };
+    }
+}
+
+// Math solver DOM elements
+const mathInput = document.getElementById('mathInput');
+const solveBtn = document.getElementById('solveMathBtn');
+const insertBtn = document.getElementById('insertAnswerBtn');
+const mathResult = document.getElementById('mathResult');
+
+// Solve math expression
+function solveMath() {
+    const expression = mathInput.value.trim();
+    if (!expression) {
+        mathResult.innerHTML = '⚠️ Enter a math expression';
+        mathResult.classList.add('show');
+        return;
+    }
+    
+    const result = evaluateMathExpression(expression);
+    
+    if (result.success) {
+        mathResult.innerHTML = `📐 ${expression} = ${result.result}`;
+        mathResult.classList.add('show');
+        toast(`Solved: ${result.result}`);
+    } else {
+        mathResult.innerHTML = `❌ Error: ${result.error}`;
+        mathResult.classList.add('show');
+        toast(`Error: ${result.error}`);
+    }
+}
+
+// Insert answer on board
+function insertAnswerOnBoard() {
+    const expression = mathInput.value.trim();
+    if (!expression) return;
+    
+    const result = evaluateMathExpression(expression);
+    
+    if (result.success) {
+        const answerText = `${expression} = ${result.result}`;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        ctx.font = '24px Arial';
+        ctx.fillStyle = currentColor;
+        ctx.fillText(answerText, centerX - 100, centerY);
+        
+        toast(`Inserted: ${answerText}`);
+        
+        // Sync with other users
+        socket.emit('text-insert', {
+            roomId: currentRoomId,
+            text: answerText,
+            x: centerX - 100,
+            y: centerY,
+            color: currentColor
+        });
+    } else {
+        toast(`Error: ${result.error}`);
+    }
+}
+
+// Handle Enter key
+mathInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') solveMath();
+});
+
+solveBtn.addEventListener('click', solveMath);
+insertBtn.addEventListener('click', insertAnswerOnBoard);
+
+// Socket event for text insertion
+socket.on('text-insert', (data) => {
+    ctx.font = '24px Arial';
+    ctx.fillStyle = data.color;
+    ctx.fillText(data.text, data.x, data.y);
+});
+
+// ============ RESTORE CHAT FUNCTIONALITY ============
+// Make sure chat button works
+const sendChatBtn = document.getElementById('sendChatBtn');
+const chatInputField = document.getElementById('chatInput');
+const chatMessagesContainer = document.getElementById('chatMessages');
+
+function sendChatMessage() {
+    const msg = chatInputField.value.trim();
+    if (!msg) return;
+    if (!socket || !socket.connected) {
+        toast('Not connected to server');
+        return;
+    }
+    
+    const messageData = {
+        userId: socket.id,
+        userName: currentUser?.name || 'Guest',
+        userAvatar: currentUser?.avatar || 'https://ui-avatars.com/api/?background=667eea&color=fff&name=Guest',
+        message: msg,
+        timestamp: new Date().toISOString()
+    };
+    
+    socket.emit('chat-message', msg);
+    addMessageToChat(messageData);
+    chatInputField.value = '';
+}
+
+function addMessageToChat(msg) {
+    const div = document.createElement('div');
+    div.className = `message ${msg.userId === socket?.id ? 'own' : ''}`;
+    const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    div.innerHTML = `<div class="message-name">${msg.userName} <span class="message-time">${time}</span></div>${msg.message}`;
+    chatMessagesContainer.appendChild(div);
+    div.scrollIntoView();
+}
+
+function addSystemMessageToChat(msg) {
+    const div = document.createElement('div');
+    div.style.cssText = 'background:#fef5e7; color:#d69e2e; padding:8px; border-radius:12px; text-align:center; margin:8px 0;';
+    div.innerHTML = msg;
+    chatMessagesContainer.appendChild(div);
+    div.scrollIntoView();
+}
+
+if (sendChatBtn) sendChatBtn.onclick = sendChatMessage;
+if (chatInputField) chatInputField.onkeypress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
+
+// Socket chat listener
+socket.on('chat-message', (msg) => {
+    addMessageToChat(msg);
+});
+
+// ============ MATH SOLVER PRESETS ============
+const mathPresets = [
+    '2 + 2', '5 * 3', '10 / 2', 'sqrt(16)', 'sin(30)', 'cos(60)', 
+    'tan(45)', 'log(100)', 'ln(20)', '2^3', 'π * 2', '100% of 50'
+];
+
+// Optional: Add preset buttons
+const presetContainer = document.createElement('div');
+presetContainer.className = 'preset-container';
+presetContainer.style.cssText = 'display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;';
+
+mathPresets.forEach(preset => {
+    const btn = document.createElement('button');
+    btn.textContent = preset;
+    btn.style.cssText = 'background: rgba(58,58,74,0.8); color: white; border: none; padding: 4px 12px; border-radius: 20px; cursor: pointer; font-size: 12px;';
+    btn.onclick = () => {
+        mathInput.value = preset;
+        solveMath();
+    };
+    presetContainer.appendChild(btn);
+});
+
+const resultContainer = document.querySelector('.math-result');
+if (resultContainer) {
+    resultContainer.parentElement.insertBefore(presetContainer, resultContainer);
+}
+
 
 // ============ CHAT ============
 function addMessageToChat(msg) {

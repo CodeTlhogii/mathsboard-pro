@@ -790,6 +790,74 @@
 }
 
 
+
+
+    /* Math Solver Bar */
+.math-solver-bar {
+    background: rgba(15, 15, 26, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+}
+
+.solver-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.solver-container i {
+    color: #667eea;
+    font-size: 20px;
+}
+
+#mathInput {
+    flex: 1;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 30px;
+    color: white;
+    font-size: 14px;
+    font-family: monospace;
+}
+
+#mathInput:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.solver-btn, .insert-btn {
+    background: #667eea;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 30px;
+    color: white;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.solver-btn:hover, .insert-btn:hover {
+    background: #5a67d8;
+}
+
+.math-result {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 20px;
+    font-family: monospace;
+    font-size: 14px;
+    color: #00ff00;
+    display: none;
+}
+
+.math-result.show {
+    display: block;
+}
+
         /* Mobile */
         @media (max-width: 768px) {
             .sidebar .tool-btn i,
@@ -1226,6 +1294,20 @@
             <button id="leaveBtn" class="leave-btn"><i class="fas fa-sign-out-alt"></i> Leave</button>
         </div>
         
+
+          <!-- Math Solver Bar -->
+<div class="math-solver-bar" id="mathSolverBar">
+    <div class="solver-container">
+        <i class="fas fa-calculator"></i>
+        <input type="text" id="mathInput" placeholder="Type math expression then click Solve (e.g., 2+2, 5*3, sqrt(16), sin(30))">
+        <button id="solveMathBtn" class="solver-btn">Solve</button>
+        <button id="insertAnswerBtn" class="insert-btn">📋 Insert on Board</button>
+    </div>
+    <div id="mathResult" class="math-result"></div>
+</div>
+
+
+
         <div class="main-content">
             <!-- Sidebar -->
             <div class="sidebar" id="sidebar">
