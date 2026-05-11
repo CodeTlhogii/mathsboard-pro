@@ -1,4 +1,4 @@
-console.log('MathsBoard Pro - Stable Version');
+console.log('MathsBoard Pro - Complete Version');
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -10,6 +10,9 @@ let sessionStartTime, timerInterval;
 let pdfDoc = null, currentPage = 1, totalPages = 0, pdfImage = null;
 let pdfLoaded = false;
 let heartbeatInterval = null;
+let shapeDrawing = false;
+let shapeStartX, shapeStartY;
+let currentShape = null;
 
 // Calculator
 let calcExpr = '';
@@ -19,6 +22,9 @@ let calcScreen = document.getElementById('calcScreen');
 const authContainer = document.getElementById('authContainer');
 const joinContainer = document.getElementById('joinContainer');
 const boardContainer = document.getElementById('boardContainer');
+const chatMessagesContainer = document.getElementById('chatMessages');
+const chatInputField = document.getElementById('chatInput');
+const sendChatBtn = document.getElementById('sendChatBtn');
 
 function toast(msg) {
     const t = document.createElement('div');
@@ -190,7 +196,7 @@ function initCollapse() {
     }
 }
 
-// ============ CANVAS DRAWING - SIMPLIFIED ============
+// ============ CANVAS DRAWING ============
 function initCanvas() {
     const c = document.getElementById('mainCanvas');
     const container = c.parentElement;
@@ -203,7 +209,6 @@ function initCanvas() {
         redrawCanvas();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        console.log('Canvas resized:', canvas.width, canvas.height);
     }
     
     resizeCanvas();
@@ -231,7 +236,6 @@ function initCanvas() {
         lastX = p.x; lastY = p.y;
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
-        console.log('Drawing started');
     }
     
     function draw(e) {
@@ -299,6 +303,98 @@ function drawRemote(d) {
     ctx.strokeStyle = d.color;
     ctx.lineWidth = d.size;
     ctx.stroke();
+}
+
+// ============ SHAPE DRAWING ============
+function drawShape(type, x1, y1, x2, y2) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = currentColor;
+    ctx.fillStyle = 'rgba(102,126,234,0.2)';
+    ctx.lineWidth = currentSize;
+    
+    const width = x2 - x1;
+    const height = y2 - y1;
+    
+    switch(type) {
+        case 'circle':
+            const radius = Math.sqrt(width * width + height * height) / 2;
+            ctx.arc(x1 + width/2, y1 + height/2, radius, 0, 2 * Math.PI);
+            break;
+        case 'square':
+            const size = Math.min(Math.abs(width), Math.abs(height));
+            ctx.rect(x1, y1, size * Math.sign(width), size * Math.sign(height));
+            break;
+        case 'triangle':
+            ctx.moveTo(x1 + width/2, y1);
+            ctx.lineTo(x1, y1 + height);
+            ctx.lineTo(x1 + width, y1 + height);
+            ctx.closePath();
+            break;
+        case 'rectangle':
+            ctx.rect(x1, y1, width, height);
+            break;
+        case 'line':
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            break;
+        case 'arrow':
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const arrowSize = 15;
+            const arrowX = x2 - arrowSize * Math.cos(angle);
+            const arrowY = y2 - arrowSize * Math.sin(angle);
+            ctx.moveTo(arrowX - 5 * Math.sin(angle), arrowY + 5 * Math.cos(angle));
+            ctx.lineTo(x2, y2);
+            ctx.lineTo(arrowX + 5 * Math.sin(angle), arrowY - 5 * Math.cos(angle));
+            break;
+    }
+    ctx.stroke();
+    if (type !== 'line' && type !== 'arrow') {
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
+function getCanvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    let cx, cy;
+    if (e.touches) {
+        cx = e.touches[0].clientX;
+        cy = e.touches[0].clientY;
+    } else {
+        cx = e.clientX;
+        cy = e.clientY;
+    }
+    return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
+}
+
+function startShapeDraw(e) {
+    shapeDrawing = true;
+    const pos = getCanvasCoords(e);
+    shapeStartX = pos.x;
+    shapeStartY = pos.y;
+}
+
+function endShapeDraw(e) {
+    if (!shapeDrawing) return;
+    const pos = getCanvasCoords(e);
+    drawShape(currentShape, shapeStartX, shapeStartY, pos.x, pos.y);
+    shapeDrawing = false;
+    
+    if (socket) {
+        socket.emit('draw-shape', {
+            roomId: currentRoomId,
+            shape: currentShape,
+            x1: shapeStartX, y1: shapeStartY,
+            x2: pos.x, y2: pos.y,
+            color: currentColor,
+            size: currentSize
+        });
+    }
 }
 
 // ============ PDF FUNCTIONS ============
@@ -371,6 +467,96 @@ function clearPDF() {
     redrawCanvas();
     if (socket) socket.emit('pdf-cleared');
     toast('PDF removed');
+}
+
+// ============ TEMPLATES ============
+function drawGraphPaper() {
+    const spacing = 40;
+    ctx.save();
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 0.5;
+    for (let x = spacing; x < canvas.width; x += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+    for (let y = spacing; y < canvas.height; y += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(canvas.width/2, 0);
+    ctx.lineTo(canvas.width/2, canvas.height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height/2);
+    ctx.lineTo(canvas.width, canvas.height/2);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawNumberLine() {
+    const centerY = canvas.height / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(50, centerY);
+    ctx.lineTo(canvas.width - 50, centerY);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    for (let i = -10; i <= 10; i++) {
+        const x = (i + 10) * 60 + 50;
+        ctx.beginPath();
+        ctx.moveTo(x, centerY - 10);
+        ctx.lineTo(x, centerY + 10);
+        ctx.stroke();
+        ctx.fillStyle = '#000';
+        ctx.font = '14px Arial';
+        ctx.fillText(i, x - 5, centerY - 15);
+    }
+    ctx.restore();
+}
+
+function drawCoordinatePlane() {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    ctx.save();
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 0.5;
+    for (let x = centerX; x < canvas.width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(centerX - (x - centerX), 0);
+        ctx.lineTo(centerX - (x - centerX), canvas.height);
+        ctx.stroke();
+    }
+    for (let y = centerY; y < canvas.height; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, centerY - (y - centerY));
+        ctx.lineTo(canvas.width, centerY - (y - centerY));
+        ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(canvas.width, centerY);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(centerX, 0);
+    ctx.lineTo(centerX, canvas.height);
+    ctx.stroke();
+    ctx.restore();
 }
 
 // ============ CALCULATOR ============
@@ -500,617 +686,66 @@ function setupTools() {
         navigator.clipboard.writeText(currentRoomId);
         toast('Room code copied!');
     });
-}
-
-
-   // ============ MATH SHAPES & DRAWING TOOLS ============
-let shapeDrawing = false;
-let shapeStartX, shapeStartY;
-let currentShape = null;
-let precisionMode = false;
-
-// Shape drawing
-function drawShape(type, x1, y1, x2, y2) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.strokeStyle = currentColor;
-    ctx.fillStyle = 'rgba(102,126,234,0.2)';
-    ctx.lineWidth = currentSize;
     
-    const width = x2 - x1;
-    const height = y2 - y1;
-    
-    switch(type) {
-        case 'circle':
-            const radius = Math.sqrt(width * width + height * height) / 2;
-            ctx.arc(x1 + width/2, y1 + height/2, radius, 0, 2 * Math.PI);
-            break;
-        case 'square':
-            const size = Math.min(Math.abs(width), Math.abs(height));
-            ctx.rect(x1, y1, size * Math.sign(width), size * Math.sign(height));
-            break;
-        case 'triangle':
-            ctx.moveTo(x1 + width/2, y1);
-            ctx.lineTo(x1, y1 + height);
-            ctx.lineTo(x1 + width, y1 + height);
-            ctx.closePath();
-            break;
-        case 'rectangle':
-            ctx.rect(x1, y1, width, height);
-            break;
-        case 'line':
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            break;
-        case 'arrow':
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            const angle = Math.atan2(y2 - y1, x2 - x1);
-            const arrowSize = 15;
-            const arrowX = x2 - arrowSize * Math.cos(angle);
-            const arrowY = y2 - arrowSize * Math.sin(angle);
-            ctx.moveTo(arrowX - 5 * Math.sin(angle), arrowY + 5 * Math.cos(angle));
-            ctx.lineTo(x2, y2);
-            ctx.lineTo(arrowX + 5 * Math.sin(angle), arrowY - 5 * Math.cos(angle));
-            break;
-    }
-    ctx.stroke();
-    if (type !== 'line' && type !== 'arrow') {
-        ctx.fill();
-    }
-    ctx.restore();
-}
-
-// Shape tool event listeners
-document.querySelectorAll('.math-tool').forEach(btn => {
-    btn.addEventListener('click', () => {
-        currentShape = btn.dataset.shape;
-        toast(`${currentShape} tool selected - click and drag on canvas`);
-        
-        // Temporarily disable normal drawing
-        const oldDraw = draw;
-        canvas.addEventListener('mousedown', startShapeDraw);
-        canvas.addEventListener('mouseup', endShapeDraw);
-    });
-});
-
-function startShapeDraw(e) {
-    shapeDrawing = true;
-    const pos = getCanvasCoords(e);
-    shapeStartX = pos.x;
-    shapeStartY = pos.y;
-}
-
-function endShapeDraw(e) {
-    if (!shapeDrawing) return;
-    const pos = getCanvasCoords(e);
-    drawShape(currentShape, shapeStartX, shapeStartY, pos.x, pos.y);
-    shapeDrawing = false;
-    
-    // Sync with other users
-    socket.emit('draw-shape', {
-        roomId: currentRoomId,
-        shape: currentShape,
-        x1: shapeStartX, y1: shapeStartY,
-        x2: pos.x, y2: pos.y,
-        color: currentColor,
-        size: currentSize
-    });
-}
-
-function getCanvasCoords(e) {
-    const rect = canvas.getBoundingClientRect();
-    const sx = canvas.width / rect.width;
-    const sy = canvas.height / rect.height;
-    let cx, cy;
-    if (e.touches) {
-        cx = e.touches[0].clientX;
-        cy = e.touches[0].clientY;
-    } else {
-        cx = e.clientX;
-        cy = e.clientY;
-    }
-    return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
-}
-
-// ============ TEMPLATES ============
-function drawGraphPaper() {
-    const spacing = 40;
-    ctx.save();
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 0.5;
-    for (let x = spacing; x < canvas.width; x += spacing) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-    }
-    for (let y = spacing; y < canvas.height; y += spacing) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-    }
-    // Main axes
-    ctx.beginPath();
-    ctx.moveTo(canvas.width/2, 0);
-    ctx.lineTo(canvas.width/2, canvas.height);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, canvas.height/2);
-    ctx.lineTo(canvas.width, canvas.height/2);
-    ctx.stroke();
-    ctx.restore();
-}
-
-function drawNumberLine() {
-    const centerY = canvas.height / 2;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(50, centerY);
-    ctx.lineTo(canvas.width - 50, centerY);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    for (let i = -10; i <= 10; i++) {
-        const x = (i + 10) * 60 + 50;
-        ctx.beginPath();
-        ctx.moveTo(x, centerY - 10);
-        ctx.lineTo(x, centerY + 10);
-        ctx.stroke();
-        ctx.fillStyle = '#000';
-        ctx.font = '14px Arial';
-        ctx.fillText(i, x - 5, centerY - 15);
-    }
-    ctx.restore();
-}
-
-function drawCoordinatePlane() {
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    ctx.save();
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 0.5;
-    
-    for (let x = centerX; x < canvas.width; x += 40) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(centerX - (x - centerX), 0);
-        ctx.lineTo(centerX - (x - centerX), canvas.height);
-        ctx.stroke();
-    }
-    for (let y = centerY; y < canvas.height; y += 40) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, centerY - (y - centerY));
-        ctx.lineTo(canvas.width, centerY - (y - centerY));
-        ctx.stroke();
-    }
-    
-    ctx.beginPath();
-    ctx.moveTo(0, centerY);
-    ctx.lineTo(canvas.width, centerY);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(centerX, 0);
-    ctx.lineTo(centerX, canvas.height);
-    ctx.stroke();
-    ctx.restore();
-}
-
-function drawProtractor() {
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const radius = 150;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    for (let i = 0; i <= 180; i += 10) {
-        const angle = (i * Math.PI) / 180;
-        const x1 = centerX + radius * Math.cos(angle);
-        const y1 = centerY - radius * Math.sin(angle);
-        const x2 = centerX + (radius - 10) * Math.cos(angle);
-        const y2 = centerY - (radius - 10) * Math.sin(angle);
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-        ctx.fillStyle = '#000';
-        ctx.font = '12px Arial';
-        ctx.fillText(i, x1 - 10, y1 - 5);
-    }
-    ctx.restore();
-}
-
-function drawRuler() {
-    const startX = 50;
-    const startY = canvas.height - 50;
-    const length = canvas.width - 100;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(startX + length, startY);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    
-    for (let i = 0; i <= 20; i++) {
-        const x = startX + (i * length / 20);
-        ctx.beginPath();
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x, startY - (i % 5 === 0 ? 20 : 10));
-        ctx.stroke();
-        if (i % 5 === 0) {
-            ctx.fillStyle = '#000';
-            ctx.font = '12px Arial';
-            ctx.fillText(i, x - 5, startY - 25);
-        }
-    }
-    ctx.restore();
-}
-
-function drawTableGrid(rows, cols) {
-    const cellWidth = canvas.width / cols;
-    const cellHeight = canvas.height / rows;
-    ctx.save();
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= rows; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, i * cellHeight);
-        ctx.lineTo(canvas.width, i * cellHeight);
-        ctx.stroke();
-    }
-    for (let i = 0; i <= cols; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * cellWidth, 0);
-        ctx.lineTo(i * cellWidth, canvas.height);
-        ctx.stroke();
-    }
-    ctx.restore();
-}
-
-function drawMatrix(size) {
-    const cellSize = 60;
-    const startX = (canvas.width - (size * cellSize)) / 2;
-    const startY = (canvas.height - (size * cellSize)) / 2;
-    ctx.save();
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    for (let i = 0; i <= size; i++) {
-        ctx.beginPath();
-        ctx.moveTo(startX + i * cellSize, startY);
-        ctx.lineTo(startX + i * cellSize, startY + size * cellSize);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(startX, startY + i * cellSize);
-        ctx.lineTo(startX + size * cellSize, startY + i * cellSize);
-        ctx.stroke();
-    }
-    ctx.fillStyle = '#000';
-    ctx.font = '20px Arial';
-    for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-            ctx.fillText(`a${i+1}${j+1}`, startX + j * cellSize + 20, startY + i * cellSize + 40);
-        }
-    }
-    ctx.restore();
-}
-
-// Template event listeners
-document.querySelectorAll('.template-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const template = btn.dataset.template;
-        switch(template) {
-            case 'graph': drawGraphPaper(); break;
-            case 'number-line': drawNumberLine(); break;
-            case 'coordinate': drawCoordinatePlane(); break;
-            case 'protractor': drawProtractor(); break;
-            case 'ruler': drawRuler(); break;
-            case 'table': drawTableGrid(8, 12); break;
-        }
-        toast(`${template} template added`);
-    });
-});
-
-document.querySelectorAll('.table-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const table = btn.dataset.table;
-        switch(table) {
-            case 'matrix-2x2': drawMatrix(2); break;
-            case 'matrix-3x3': drawMatrix(3); break;
-            case 'function-table': drawTableGrid(5, 3); break;
-            case 'data-table': drawTableGrid(6, 4); break;
-        }
-        toast(`${table} added`);
-    });
-});
-
-document.querySelectorAll('.angle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const angle = parseInt(btn.dataset.angle);
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = 100;
-        const endX = centerX + radius * Math.cos(angle * Math.PI / 180);
-        const endY = centerY - radius * Math.sin(angle * Math.PI / 180);
-        
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(endX, endY);
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 30, 0, angle * Math.PI / 180);
-        ctx.stroke();
-        
-        ctx.fillStyle = '#000';
-        ctx.font = '16px Arial';
-        ctx.fillText(`${angle}°`, centerX + 40, centerY - 20);
-        ctx.restore();
-        
-        toast(`${angle}° angle drawn`);
-    });
-});
-
-// ============ SOCKET SHAPE SYNC ============
-socket.on('draw-shape', (data) => {
-    drawShape(data.shape, data.x1, data.y1, data.x2, data.y2);
-});
-
-
-// ============ MATH SOLVER (Like Google Sheets) ============
-function evaluateMathExpression(expr) {
-    try {
-        // Replace math symbols
-        let processed = expr
-            .replace(/π/g, 'Math.PI')
-            .replace(/pi/g, 'Math.PI')
-            .replace(/e/g, 'Math.E')
-            .replace(/÷/g, '/')
-            .replace(/×/g, '*')
-            .replace(/\^/g, '**')
-            .replace(/√\(/g, 'Math.sqrt(')
-            .replace(/sqrt\(/g, 'Math.sqrt(')
-            .replace(/sin\(/g, 'Math.sin(')
-            .replace(/cos\(/g, 'Math.cos(')
-            .replace(/tan\(/g, 'Math.tan(')
-            .replace(/asin\(/g, 'Math.asin(')
-            .replace(/acos\(/g, 'Math.acos(')
-            .replace(/atan\(/g, 'Math.atan(')
-            .replace(/log\(/g, 'Math.log10(')
-            .replace(/ln\(/g, 'Math.log(')
-            .replace(/abs\(/g, 'Math.abs(')
-            .replace(/floor\(/g, 'Math.floor(')
-            .replace(/ceil\(/g, 'Math.ceil(')
-            .replace(/round\(/g, 'Math.round(')
-            .replace(/%/g, '/100');
-        
-        // Handle power
-        if (processed.includes('^')) {
-            processed = processed.replace(/\^/g, '**');
-        }
-        
-        // Evaluate
-        const result = Function('"use strict";return (' + processed + ')')();
-        
-        if (isNaN(result)) return { success: false, error: 'Invalid expression' };
-        if (!isFinite(result)) return { success: false, error: 'Result is infinite' };
-        
-        return { success: true, result: result };
-    } catch(e) {
-        return { success: false, error: e.message };
-    }
-}
-
-// Math solver DOM elements
-const mathInput = document.getElementById('mathInput');
-const solveBtn = document.getElementById('solveMathBtn');
-const insertBtn = document.getElementById('insertAnswerBtn');
-const mathResult = document.getElementById('mathResult');
-
-// Solve math expression
-function solveMath() {
-    const expression = mathInput.value.trim();
-    if (!expression) {
-        mathResult.innerHTML = '⚠️ Enter a math expression';
-        mathResult.classList.add('show');
-        return;
-    }
-    
-    const result = evaluateMathExpression(expression);
-    
-    if (result.success) {
-        mathResult.innerHTML = `📐 ${expression} = ${result.result}`;
-        mathResult.classList.add('show');
-        toast(`Solved: ${result.result}`);
-    } else {
-        mathResult.innerHTML = `❌ Error: ${result.error}`;
-        mathResult.classList.add('show');
-        toast(`Error: ${result.error}`);
-    }
-}
-
-// Insert answer on board
-function insertAnswerOnBoard() {
-    const expression = mathInput.value.trim();
-    if (!expression) return;
-    
-    const result = evaluateMathExpression(expression);
-    
-    if (result.success) {
-        const answerText = `${expression} = ${result.result}`;
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        
-        ctx.font = '24px Arial';
-        ctx.fillStyle = currentColor;
-        ctx.fillText(answerText, centerX - 100, centerY);
-        
-        toast(`Inserted: ${answerText}`);
-        
-        // Sync with other users
-        socket.emit('text-insert', {
-            roomId: currentRoomId,
-            text: answerText,
-            x: centerX - 100,
-            y: centerY,
-            color: currentColor
+    // Shape tools
+    document.querySelectorAll('.math-tool').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentShape = btn.dataset.shape;
+            toast(`${currentShape} tool selected - click and drag on canvas`);
+            canvas.addEventListener('mousedown', startShapeDraw);
+            canvas.addEventListener('mouseup', endShapeDraw);
         });
-    } else {
-        toast(`Error: ${result.error}`);
-    }
+    });
+    
+    // Template tools
+    document.querySelectorAll('.template-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const template = btn.dataset.template;
+            switch(template) {
+                case 'graph': drawGraphPaper(); break;
+                case 'number-line': drawNumberLine(); break;
+                case 'coordinate': drawCoordinatePlane(); break;
+                case 'protractor': drawProtractor(); break;
+                case 'ruler': drawRuler(); break;
+                case 'table': drawTableGrid(8, 12); break;
+            }
+            toast(`${template} template added`);
+        });
+    });
 }
 
-// Handle Enter key
-mathInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') solveMath();
-});
+// ============ CHAT FUNCTIONS ============
+function addMessageToChat(msg) {
+    if (!chatMessagesContainer) return;
+    const div = document.createElement('div');
+    div.className = `message ${msg.userId === socket?.id ? 'own' : ''}`;
+    const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    div.innerHTML = `<div class="message-name">${msg.userName} <span class="message-time">${time}</span></div>${msg.message}`;
+    chatMessagesContainer.appendChild(div);
+    div.scrollIntoView();
+}
 
-solveBtn.addEventListener('click', solveMath);
-insertBtn.addEventListener('click', insertAnswerOnBoard);
-
-// Socket event for text insertion
-socket.on('text-insert', (data) => {
-    ctx.font = '24px Arial';
-    ctx.fillStyle = data.color;
-    ctx.fillText(data.text, data.x, data.y);
-});
-
-// ============ RESTORE CHAT FUNCTIONALITY ============
-// Make sure chat button works
-const sendChatBtn = document.getElementById('sendChatBtn');
-const chatInputField = document.getElementById('chatInput');
-const chatMessagesContainer = document.getElementById('chatMessages');
+function addSystemMessageToChat(msg) {
+    if (!chatMessagesContainer) return;
+    const div = document.createElement('div');
+    div.style.cssText = 'background:#fef5e7; color:#d69e2e; padding:8px; border-radius:12px; text-align:center; margin:8px 0;';
+    div.innerHTML = msg;
+    chatMessagesContainer.appendChild(div);
+    div.scrollIntoView();
+}
 
 function sendChatMessage() {
-    const msg = chatInputField.value.trim();
+    const msg = chatInputField?.value.trim();
     if (!msg) return;
     if (!socket || !socket.connected) {
         toast('Not connected to server');
         return;
     }
-    
-    const messageData = {
-        userId: socket.id,
-        userName: currentUser?.name || 'Guest',
-        userAvatar: currentUser?.avatar || 'https://ui-avatars.com/api/?background=667eea&color=fff&name=Guest',
-        message: msg,
-        timestamp: new Date().toISOString()
-    };
-    
     socket.emit('chat-message', msg);
-    addMessageToChat(messageData);
     chatInputField.value = '';
 }
 
-function addMessageToChat(msg) {
-    const div = document.createElement('div');
-    div.className = `message ${msg.userId === socket?.id ? 'own' : ''}`;
-    const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    div.innerHTML = `<div class="message-name">${msg.userName} <span class="message-time">${time}</span></div>${msg.message}`;
-    chatMessagesContainer.appendChild(div);
-    div.scrollIntoView();
-}
-
-function addSystemMessageToChat(msg) {
-    const div = document.createElement('div');
-    div.style.cssText = 'background:#fef5e7; color:#d69e2e; padding:8px; border-radius:12px; text-align:center; margin:8px 0;';
-    div.innerHTML = msg;
-    chatMessagesContainer.appendChild(div);
-    div.scrollIntoView();
-}
-
-if (sendChatBtn) sendChatBtn.onclick = sendChatMessage;
-if (chatInputField) chatInputField.onkeypress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
-
-// Socket chat listener
-socket.on('chat-message', (msg) => {
-    addMessageToChat(msg);
-});
-
-// ============ MATH SOLVER PRESETS ============
-const mathPresets = [
-    '2 + 2', '5 * 3', '10 / 2', 'sqrt(16)', 'sin(30)', 'cos(60)', 
-    'tan(45)', 'log(100)', 'ln(20)', '2^3', 'π * 2', '100% of 50'
-];
-
-// Optional: Add preset buttons
-const presetContainer = document.createElement('div');
-presetContainer.className = 'preset-container';
-presetContainer.style.cssText = 'display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;';
-
-mathPresets.forEach(preset => {
-    const btn = document.createElement('button');
-    btn.textContent = preset;
-    btn.style.cssText = 'background: rgba(58,58,74,0.8); color: white; border: none; padding: 4px 12px; border-radius: 20px; cursor: pointer; font-size: 12px;';
-    btn.onclick = () => {
-        mathInput.value = preset;
-        solveMath();
-    };
-    presetContainer.appendChild(btn);
-});
-
-const resultContainer = document.querySelector('.math-result');
-if (resultContainer) {
-    resultContainer.parentElement.insertBefore(presetContainer, resultContainer);
-}
-
-
-// ============ CHAT ============
-function addMessageToChat(msg) {
-    const chatContainer = document.getElementById('chatMessages');
-    if (!chatContainer) return;
-    
-    const div = document.createElement('div');
-    div.className = `message ${msg.userId === socket?.id ? 'own' : ''}`;
-    const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    div.innerHTML = `<div class="message-name">${msg.userName} <span class="message-time">${time}</span></div>${msg.message}`;
-    chatContainer.appendChild(div);
-    div.scrollIntoView();
-}
-
-function addSystemMessageToChat(msg) {
-    const chatContainer = document.getElementById('chatMessages');
-    if (!chatContainer) return;
-    
-    const div = document.createElement('div');
-    div.style.cssText = 'background:#fef5e7; color:#d69e2e; padding:8px; border-radius:12px; text-align:center; margin:8px 0;';
-    div.innerHTML = msg;
-    chatContainer.appendChild(div);
-    div.scrollIntoView();
-}
-
-function sendChatMessage() {
-    const input = document.getElementById('chatInput');
-    const msg = input.value.trim();
-    if (!msg) return;
-    if (!socket || !socket.connected) {
-        toast('Not connected to server');
-        return;
-    }
-    socket.emit('chat-message', msg);
-    input.value = '';
-}
-
-const sendChatBtn = document.getElementById('sendChatBtn');
-const chatInputField = document.getElementById('chatInput');
+// Wire up chat
 if (sendChatBtn) sendChatBtn.onclick = sendChatMessage;
 if (chatInputField) chatInputField.onkeypress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
 
@@ -1177,8 +812,6 @@ function initSocket() {
         setupTools();
         setupCalculator();
         initCollapse();
-        initMobile();
-        initMobileChatToggle();
         toast(`Room created: ${data.roomId}`);
     });
     
@@ -1192,8 +825,6 @@ function initSocket() {
         setupTools();
         setupCalculator();
         initCollapse();
-        initMobile();
-        initMobileChatToggle();
         if (data.drawings) data.drawings.forEach(d => drawRemote(d));
         if (data.messages) data.messages.forEach(m => addMessageToChat(m));
         if (data.currentPdf) loadPDFFromData(data.currentPdf);
@@ -1205,6 +836,7 @@ function initSocket() {
     socket.on('draw', drawRemote);
     socket.on('clear-drawings', () => redrawCanvas());
     socket.on('chat-message', (msg) => addMessageToChat(msg));
+    socket.on('draw-shape', (data) => drawShape(data.shape, data.x1, data.y1, data.x2, data.y2));
     socket.on('user-joined', (u) => {
         addSystemMessageToChat(`${u.name} joined`);
         const countEl = document.getElementById('chatParticipantCount');
@@ -1258,17 +890,13 @@ function initMobile() {
 function initMobileChatToggle() {
     const mobileChatToggle = document.getElementById('mobileChatToggle');
     const chatPanel = document.getElementById('chatPanel');
-    
     if (!mobileChatToggle) return;
-    
     if (window.innerWidth <= 768) {
         mobileChatToggle.style.display = 'flex';
         mobileChatToggle.classList.remove('hidden');
-        
         const newToggle = mobileChatToggle.cloneNode(true);
         mobileChatToggle.parentNode.replaceChild(newToggle, mobileChatToggle);
         const freshToggle = document.getElementById('mobileChatToggle');
-        
         freshToggle.onclick = (e) => {
             e.stopPropagation();
             chatPanel.classList.toggle('mobile-open');
@@ -1278,27 +906,6 @@ function initMobileChatToggle() {
                 freshToggle.classList.remove('hidden');
             }
         };
-        
-        const closeChatHandler = (e) => {
-            if (chatPanel.classList.contains('mobile-open')) {
-                if (!chatPanel.contains(e.target) && e.target !== freshToggle) {
-                    chatPanel.classList.remove('mobile-open');
-                    freshToggle.classList.remove('hidden');
-                }
-            }
-        };
-        
-        document.removeEventListener('click', closeChatHandler);
-        document.addEventListener('click', closeChatHandler);
-        
-        const leaveBtn = document.getElementById('leaveBtn');
-        if (leaveBtn) {
-            leaveBtn.onclick = () => {
-                chatPanel.classList.remove('mobile-open');
-                if (freshToggle) freshToggle.classList.remove('hidden');
-                location.reload();
-            };
-        }
     } else {
         mobileChatToggle.style.display = 'none';
     }
@@ -1311,7 +918,6 @@ window.addEventListener('resize', () => {
     }
 });
 
-// Initialize
 initMobile();
 setupCalculator();
-console.log('MathsBoard Pro - Stable version ready');
+console.log('MathsBoard Pro - Ready');
