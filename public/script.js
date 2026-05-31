@@ -26,12 +26,33 @@ const chatMessagesContainer = document.getElementById('chatMessages');
 const chatInputField = document.getElementById('chatInput');
 const sendChatBtn = document.getElementById('sendChatBtn');
 
-function toast(msg) {
+// HTML escape for security
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Enhanced toast with types
+function toast(msg, type = 'info') {
     const t = document.createElement('div');
     t.className = 'toast';
-    t.innerHTML = `<i class="fas fa-bell"></i> ${msg}`;
+    
+    const icons = {
+        info: '🔵',
+        success: '✅',
+        error: '❌',
+        warning: '⚠️'
+    };
+    
+    t.innerHTML = `${icons[type] || '🔵'} ${msg}`;
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2500);
+    
+    setTimeout(() => {
+        t.style.opacity = '0';
+        t.style.transform = 'translateX(-50%) translateY(20px)';
+        setTimeout(() => t.remove(), 300);
+    }, 2500);
 }
 
 function showPage(page) {
@@ -43,7 +64,7 @@ function showPage(page) {
     else if (page === 'board') boardContainer.style.display = 'flex';
 }
 
-// ============ HEARTBEAT ============
+// Heartbeat
 function startHeartbeat() {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
@@ -53,7 +74,7 @@ function startHeartbeat() {
     }, 25000);
 }
 
-// ============ AUTH ============
+// Auth
 const loginTab = document.getElementById('loginTab');
 const registerTab = document.getElementById('registerTab');
 const loginForm = document.getElementById('loginForm');
@@ -106,7 +127,7 @@ document.getElementById('registerBtn')?.addEventListener('click', async () => {
         const data = await res.json();
         
         if (data.success) {
-            toast('Registration successful! Please login.');
+            toast('Registration successful! Please login.', 'success');
             loginTab.click();
             document.getElementById('loginEmail').value = email;
             document.getElementById('loginPassword').value = '';
@@ -117,9 +138,11 @@ document.getElementById('registerBtn')?.addEventListener('click', async () => {
             document.getElementById('regConfirm').value = '';
         } else {
             document.getElementById('registerError').textContent = data.error;
+            toast(data.error, 'error');
         }
     } catch (err) {
         document.getElementById('registerError').textContent = 'Server error';
+        toast('Server error', 'error');
     }
 });
 
@@ -147,13 +170,15 @@ document.getElementById('loginBtn')?.addEventListener('click', async () => {
             document.getElementById('userName').textContent = currentUser.name;
             document.getElementById('userEmail').textContent = currentUser.email;
             showPage('join');
-            toast(`Welcome ${currentUser.name}!`);
+            toast(`Welcome ${currentUser.name}!`, 'success');
             initSocket();
         } else {
             document.getElementById('loginError').textContent = data.error;
+            toast(data.error, 'error');
         }
     } catch (err) {
         document.getElementById('loginError').textContent = 'Server error';
+        toast('Server error', 'error');
     }
 });
 
@@ -161,15 +186,23 @@ document.getElementById('logoutBtn')?.addEventListener('click', () => location.r
 document.getElementById('leaveBtn')?.addEventListener('click', () => location.reload());
 document.getElementById('createRoomBtn')?.addEventListener('click', () => {
     if (socket) socket.emit('create-room');
-    else toast('Connecting...');
+    else toast('Connecting...', 'warning');
 });
 document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
     const code = document.getElementById('roomCode').value.trim();
-    if (code && socket) socket.emit('join-room', code);
-    else toast('Enter room code');
+    if (!code) {
+        toast('Please enter a room code', 'warning');
+        document.getElementById('roomCode').style.border = '1px solid #e53e3e';
+        setTimeout(() => {
+            document.getElementById('roomCode').style.border = '';
+        }, 2000);
+        return;
+    }
+    if (socket) socket.emit('join-room', code);
+    else toast('Connecting...', 'warning');
 });
 
-// ============ SIDEBAR COLLAPSE ============
+// Sidebar Collapse
 function initCollapse() {
     const collapseBtn = document.getElementById('collapseBtn');
     const sidebar = document.getElementById('sidebar');
@@ -196,16 +229,22 @@ function initCollapse() {
     }
 }
 
-// ============ CANVAS DRAWING ============
+// Canvas Drawing with smooth rendering
 function initCanvas() {
     const c = document.getElementById('mainCanvas');
     const container = c.parentElement;
     
     function resizeCanvas() {
-        c.width = container.clientWidth;
-        c.height = container.clientHeight;
+        const rect = container.getBoundingClientRect();
+        c.width = rect.width;
+        c.height = rect.height;
         canvas = c;
-        ctx = canvas.getContext('2d');
+        ctx = canvas.getContext('2d', {
+            antialias: true,
+            alpha: false
+        });
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         redrawCanvas();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -233,9 +272,19 @@ function initCanvas() {
         e.preventDefault();
         drawing = true;
         const p = getPos(e);
-        lastX = p.x; lastY = p.y;
+        lastX = p.x;
+        lastY = p.y;
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
+    }
+    
+    let drawTimeout;
+    function throttledDraw(e) {
+        if (drawTimeout) return;
+        drawTimeout = setTimeout(() => {
+            draw(e);
+            drawTimeout = null;
+        }, 5);
     }
     
     function draw(e) {
@@ -262,17 +311,18 @@ function initCanvas() {
         if (socket && socket.connected) {
             socket.emit('draw', { fromX: lastX, fromY: lastY, toX: p.x, toY: p.y, color: currentColor, size: currentSize });
         }
-        lastX = p.x; lastY = p.y;
+        lastX = p.x;
+        lastY = p.y;
     }
     
     function stop() { drawing = false; ctx.beginPath(); }
     
     canvas.addEventListener('mousedown', start);
-    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mousemove', throttledDraw);
     canvas.addEventListener('mouseup', stop);
     canvas.addEventListener('mouseleave', stop);
     canvas.addEventListener('touchstart', start);
-    canvas.addEventListener('touchmove', draw);
+    canvas.addEventListener('touchmove', throttledDraw);
     canvas.addEventListener('touchend', stop);
 }
 
@@ -305,8 +355,9 @@ function drawRemote(d) {
     ctx.stroke();
 }
 
-// ============ SHAPE DRAWING ============
+// Shape Drawing
 function drawShape(type, x1, y1, x2, y2) {
+    if (!ctx) return;
     ctx.save();
     ctx.beginPath();
     ctx.strokeStyle = currentColor;
@@ -343,11 +394,9 @@ function drawShape(type, x1, y1, x2, y2) {
             ctx.lineTo(x2, y2);
             const angle = Math.atan2(y2 - y1, x2 - x1);
             const arrowSize = 15;
-            const arrowX = x2 - arrowSize * Math.cos(angle);
-            const arrowY = y2 - arrowSize * Math.sin(angle);
-            ctx.moveTo(arrowX - 5 * Math.sin(angle), arrowY + 5 * Math.cos(angle));
+            ctx.moveTo(x2 - arrowSize * Math.cos(angle) - 5 * Math.sin(angle), y2 - arrowSize * Math.sin(angle) + 5 * Math.cos(angle));
             ctx.lineTo(x2, y2);
-            ctx.lineTo(arrowX + 5 * Math.sin(angle), arrowY - 5 * Math.cos(angle));
+            ctx.lineTo(x2 - arrowSize * Math.cos(angle) + 5 * Math.sin(angle), y2 - arrowSize * Math.sin(angle) - 5 * Math.cos(angle));
             break;
     }
     ctx.stroke();
@@ -372,6 +421,8 @@ function getCanvasCoords(e) {
     return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
 }
 
+let shapeListenersActive = false;
+
 function startShapeDraw(e) {
     shapeDrawing = true;
     const pos = getCanvasCoords(e);
@@ -385,7 +436,7 @@ function endShapeDraw(e) {
     drawShape(currentShape, shapeStartX, shapeStartY, pos.x, pos.y);
     shapeDrawing = false;
     
-    if (socket) {
+    if (socket && socket.connected) {
         socket.emit('draw-shape', {
             roomId: currentRoomId,
             shape: currentShape,
@@ -397,9 +448,9 @@ function endShapeDraw(e) {
     }
 }
 
-// ============ PDF FUNCTIONS ============
+// PDF Functions
 async function loadPDFFromData(dataUrl) {
-    toast('Loading PDF...');
+    toast('Loading PDF...', 'info');
     try {
         const base64 = dataUrl.split(',')[1];
         const binary = atob(base64);
@@ -412,10 +463,10 @@ async function loadPDFFromData(dataUrl) {
         document.getElementById('pdfNav').style.display = 'block';
         document.getElementById('pageIndicator').innerHTML = `Page 1 / ${totalPages}`;
         await renderPDFPage();
-        toast(`PDF loaded: ${totalPages} pages`);
+        toast(`PDF loaded: ${totalPages} pages`, 'success');
     } catch(e) { 
         console.error(e);
-        toast('PDF error'); 
+        toast('PDF error', 'error'); 
     }
 }
 
@@ -466,13 +517,13 @@ function clearPDF() {
     document.getElementById('pdfNav').style.display = 'none';
     redrawCanvas();
     if (socket) socket.emit('pdf-cleared');
-    toast('PDF removed');
+    toast('PDF removed', 'info');
 }
 
-// ============ TEMPLATES ============
+// Templates
 function drawGraphPaper() {
-    const spacing = 40;
     ctx.save();
+    const spacing = 40;
     ctx.strokeStyle = '#ccc';
     ctx.lineWidth = 0.5;
     for (let x = spacing; x < canvas.width; x += spacing) {
@@ -496,11 +547,12 @@ function drawGraphPaper() {
     ctx.lineTo(canvas.width, canvas.height/2);
     ctx.stroke();
     ctx.restore();
+    toast('Graph paper added', 'success');
 }
 
 function drawNumberLine() {
-    const centerY = canvas.height / 2;
     ctx.save();
+    const centerY = canvas.height / 2;
     ctx.beginPath();
     ctx.moveTo(50, centerY);
     ctx.lineTo(canvas.width - 50, centerY);
@@ -518,12 +570,13 @@ function drawNumberLine() {
         ctx.fillText(i, x - 5, centerY - 15);
     }
     ctx.restore();
+    toast('Number line added', 'success');
 }
 
 function drawCoordinatePlane() {
+    ctx.save();
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    ctx.save();
     ctx.strokeStyle = '#ccc';
     ctx.lineWidth = 0.5;
     for (let x = centerX; x < canvas.width; x += 40) {
@@ -557,9 +610,190 @@ function drawCoordinatePlane() {
     ctx.lineTo(centerX, canvas.height);
     ctx.stroke();
     ctx.restore();
+    toast('Coordinate plane added', 'success');
 }
 
-// ============ CALCULATOR ============
+function drawProtractor() {
+    ctx.save();
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 150;
+    
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    for (let deg = 0; deg <= 180; deg += 10) {
+        const rad = deg * Math.PI / 180;
+        const x = centerX + radius * Math.cos(rad);
+        const y = centerY - radius * Math.sin(rad);
+        const isMajor = deg % 30 === 0;
+        const markLen = isMajor ? 15 : 8;
+        const x2 = centerX + (radius - markLen) * Math.cos(rad);
+        const y2 = centerY - (radius - markLen) * Math.sin(rad);
+        
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        
+        if (isMajor) {
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.fillText(deg, x2 - 8, y2 - 5);
+        }
+    }
+    
+    ctx.beginPath();
+    ctx.moveTo(centerX - radius, centerY);
+    ctx.lineTo(centerX + radius, centerY);
+    ctx.stroke();
+    ctx.restore();
+    toast('Protractor added', 'success');
+}
+
+function drawRuler() {
+    ctx.save();
+    const startX = 50;
+    const startY = canvas.height - 50;
+    const length = canvas.width - 100;
+    
+    ctx.fillStyle = '#f5e6c8';
+    ctx.fillRect(startX, startY - 20, length, 30);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(startX, startY - 20, length, 30);
+    
+    for (let i = 0; i <= length; i += 20) {
+        const x = startX + i;
+        const isCm = i % 100 === 0;
+        const markHeight = isCm ? 20 : (i % 50 === 0 ? 15 : 10);
+        
+        ctx.beginPath();
+        ctx.moveTo(x, startY - 20);
+        ctx.lineTo(x, startY - 20 + markHeight);
+        ctx.stroke();
+        
+        if (isCm) {
+            ctx.fillStyle = '#333';
+            ctx.font = '10px Arial';
+            ctx.fillText(`${i / 20}`, x - 3, startY - 25);
+        }
+    }
+    ctx.restore();
+    toast('Ruler added', 'success');
+}
+
+function drawTableGrid(rows, cols) {
+    ctx.save();
+    const startX = 50;
+    const startY = 50;
+    const cellW = (canvas.width - 100) / cols;
+    const cellH = (canvas.height - 100) / rows;
+    
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    
+    for (let r = 0; r <= rows; r++) {
+        ctx.beginPath();
+        ctx.moveTo(startX, startY + r * cellH);
+        ctx.lineTo(startX + cols * cellW, startY + r * cellH);
+        ctx.stroke();
+    }
+    
+    for (let c = 0; c <= cols; c++) {
+        ctx.beginPath();
+        ctx.moveTo(startX + c * cellW, startY);
+        ctx.lineTo(startX + c * cellW, startY + rows * cellH);
+        ctx.stroke();
+    }
+    
+    ctx.fillStyle = '#667eea';
+    ctx.font = '12px Arial';
+    for (let r = 0; r < rows; r++) {
+        ctx.fillText(r + 1, startX - 20, startY + r * cellH + cellH / 2 + 5);
+    }
+    for (let c = 0; c < cols; c++) {
+        ctx.fillText(String.fromCharCode(65 + c), startX + c * cellW + cellW / 2 - 5, startY - 10);
+    }
+    ctx.restore();
+    toast(`${rows}x${cols} table added`, 'success');
+}
+
+function drawMatrix(rows, cols) {
+    ctx.save();
+    const cellW = 60;
+    const cellH = 40;
+    const startX = (canvas.width - cols * cellW) / 2;
+    const startY = (canvas.height - rows * cellH) / 2;
+    
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    
+    ctx.beginPath();
+    ctx.moveTo(startX - 10, startY - 10);
+    ctx.lineTo(startX - 10, startY + rows * cellH + 10);
+    ctx.moveTo(startX + cols * cellW + 10, startY - 10);
+    ctx.lineTo(startX + cols * cellW + 10, startY + rows * cellH + 10);
+    ctx.stroke();
+    
+    for (let r = 0; r <= rows; r++) {
+        ctx.beginPath();
+        ctx.moveTo(startX, startY + r * cellH);
+        ctx.lineTo(startX + cols * cellW, startY + r * cellH);
+        ctx.stroke();
+    }
+    for (let c = 0; c <= cols; c++) {
+        ctx.beginPath();
+        ctx.moveTo(startX + c * cellW, startY);
+        ctx.lineTo(startX + c * cellW, startY + rows * cellH);
+        ctx.stroke();
+    }
+    
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#666';
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            ctx.fillText('0', startX + c * cellW + cellW/2 - 5, startY + r * cellH + cellH/2 + 5);
+        }
+    }
+    ctx.restore();
+    toast(`${rows}x${cols} matrix added`, 'success');
+}
+
+function drawAngle(degrees) {
+    ctx.save();
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 120;
+    const rad = degrees * Math.PI / 180;
+    
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(centerX + radius, centerY);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(centerX + radius * Math.cos(rad), centerY - radius * Math.sin(rad));
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 40, 0, rad);
+    ctx.stroke();
+    
+    ctx.fillStyle = '#e53e3e';
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(`${degrees}°`, centerX + 50, centerY - 30);
+    ctx.restore();
+    toast(`${degrees}° angle added`, 'success');
+}
+
+// Calculator
 function evalExpr(expr) {
     try {
         let p = expr.replace(/π/g, 'Math.PI').replace(/e/g, 'Math.E')
@@ -590,7 +824,7 @@ function setupCalculator() {
         const r = evalExpr(calcExpr);
         calcExpr = r.toString();
         updateCalc();
-        toast(`Result: ${r}`);
+        toast(`Result: ${r}`, 'success');
     });
     document.querySelectorAll('.calc-key.func').forEach(btn => {
         btn.onclick = () => {
@@ -608,14 +842,14 @@ function setupCalculator() {
         if (calcExpr && calcExpr !== '0' && ctx) {
             const r = evalExpr(calcExpr);
             ctx.font = '24px Arial';
-            ctx.fillStyle = '#000';
+            ctx.fillStyle = currentColor;
             ctx.fillText(r.toString(), canvas.width / 2, canvas.height / 2);
-            toast(`Copied: ${r}`);
+            toast(`Inserted: ${r}`, 'success');
         }
     });
 }
 
-// ============ TOOLS ============
+// Tools
 function setupTools() {
     document.querySelectorAll('.color').forEach(el => {
         el.onclick = () => {
@@ -641,7 +875,7 @@ function setupTools() {
         document.getElementById('drawBtn').classList.add('active');
         document.getElementById('highlighterBtn').classList.remove('active');
         document.getElementById('eraserBtn').classList.remove('active');
-        toast('Draw mode');
+        toast('Draw mode', 'info');
     });
     
     document.getElementById('highlighterBtn')?.addEventListener('click', () => {
@@ -650,7 +884,7 @@ function setupTools() {
         document.getElementById('highlighterBtn').classList.add('active');
         document.getElementById('drawBtn').classList.remove('active');
         document.getElementById('eraserBtn').classList.remove('active');
-        toast('Highlighter mode');
+        toast('Highlighter mode', 'info');
     });
     
     document.getElementById('eraserBtn')?.addEventListener('click', () => {
@@ -659,13 +893,13 @@ function setupTools() {
         document.getElementById('eraserBtn').classList.add('active');
         document.getElementById('drawBtn').classList.remove('active');
         document.getElementById('highlighterBtn').classList.remove('active');
-        toast('Eraser mode');
+        toast('Eraser mode', 'info');
     });
     
     document.getElementById('clearBtn')?.addEventListener('click', () => {
         redrawCanvas();
         if (socket) socket.emit('clear-drawings');
-        toast('Board cleared');
+        toast('Board cleared', 'warning');
     });
     
     document.getElementById('uploadPdfBtn')?.addEventListener('click', () => document.getElementById('pdfFile').click());
@@ -684,20 +918,36 @@ function setupTools() {
     document.getElementById('nextPdfBtn')?.addEventListener('click', nextPage);
     document.getElementById('copyCodeBtn')?.addEventListener('click', () => {
         navigator.clipboard.writeText(currentRoomId);
-        toast('Room code copied!');
+        toast('Room code copied!', 'success');
     });
-    
-    // Shape tools
+}
+
+// Shape Tools Setup
+function setupShapeTools() {
     document.querySelectorAll('.math-tool').forEach(btn => {
         btn.addEventListener('click', () => {
             currentShape = btn.dataset.shape;
-            toast(`${currentShape} tool selected - click and drag on canvas`);
+            
+            if (shapeListenersActive) {
+                canvas.removeEventListener('mousedown', startShapeDraw);
+                canvas.removeEventListener('mouseup', endShapeDraw);
+                canvas.removeEventListener('touchstart', startShapeDraw);
+                canvas.removeEventListener('touchend', endShapeDraw);
+            }
+            
             canvas.addEventListener('mousedown', startShapeDraw);
             canvas.addEventListener('mouseup', endShapeDraw);
+            canvas.addEventListener('touchstart', startShapeDraw);
+            canvas.addEventListener('touchend', endShapeDraw);
+            shapeListenersActive = true;
+            
+            toast(`${currentShape} tool selected - click and drag on canvas`, 'info');
         });
     });
-    
-    // Template tools
+}
+
+// Template Tools
+function setupTemplates() {
     document.querySelectorAll('.template-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const template = btn.dataset.template;
@@ -709,47 +959,117 @@ function setupTools() {
                 case 'ruler': drawRuler(); break;
                 case 'table': drawTableGrid(8, 12); break;
             }
-            toast(`${template} template added`);
+        });
+    });
+    
+    document.querySelectorAll('.table-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tableType = btn.dataset.table;
+            switch(tableType) {
+                case 'matrix-2x2': drawMatrix(2, 2); break;
+                case 'matrix-3x3': drawMatrix(3, 3); break;
+                case 'function-table': drawTableGrid(5, 3); break;
+                case 'data-table': drawTableGrid(6, 4); break;
+            }
+        });
+    });
+    
+    document.querySelectorAll('.angle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const angle = parseInt(btn.dataset.angle);
+            drawAngle(angle);
         });
     });
 }
 
-// ============ CHAT FUNCTIONS ============
+// Math Solver
+function setupMathSolver() {
+    const solveBtn = document.getElementById('solveMathBtn');
+    const mathInput = document.getElementById('mathInput');
+    const mathResultDiv = document.getElementById('mathResult');
+    const insertBtn = document.getElementById('insertAnswerBtn');
+    
+    if (solveBtn) {
+        solveBtn.addEventListener('click', () => {
+            const expr = mathInput.value.trim();
+            if (!expr) return;
+            
+            try {
+                let processed = expr.replace(/π/g, 'Math.PI').replace(/e/g, 'Math.E')
+                    .replace(/sin\(/g, 'Math.sin(').replace(/cos\(/g, 'Math.cos(')
+                    .replace(/tan\(/g, 'Math.tan(').replace(/sqrt\(/g, 'Math.sqrt(')
+                    .replace(/log\(/g, 'Math.log10(').replace(/ln\(/g, 'Math.log(')
+                    .replace(/\^/g, '**').replace(/×/g, '*').replace(/÷/g, '/');
+                const result = Function('"use strict";return (' + processed + ')')();
+                const resultStr = isNaN(result) ? 'Error' : result.toString();
+                mathResultDiv.textContent = `= ${resultStr}`;
+                mathResultDiv.classList.add('show');
+                toast(`Result: ${resultStr}`, 'success');
+            } catch(e) {
+                mathResultDiv.textContent = '= Invalid expression';
+                mathResultDiv.classList.add('show');
+                toast('Invalid expression', 'error');
+            }
+        });
+    }
+    
+    if (insertBtn) {
+        insertBtn.addEventListener('click', () => {
+            const resultText = mathResultDiv.textContent;
+            if (resultText && resultText !== '= Invalid expression' && ctx) {
+                const result = resultText.replace('= ', '');
+                ctx.font = '24px Arial';
+                ctx.fillStyle = currentColor;
+                ctx.fillText(result.toString(), canvas.width / 2, canvas.height / 2);
+                toast(`Inserted: ${result}`, 'success');
+            }
+        });
+    }
+}
+
+// Chat Functions
 function addMessageToChat(msg) {
     if (!chatMessagesContainer) return;
     const div = document.createElement('div');
     div.className = `message ${msg.userId === socket?.id ? 'own' : ''}`;
     const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    div.innerHTML = `<div class="message-name">${msg.userName} <span class="message-time">${time}</span></div>${msg.message}`;
+    const avatarHtml = msg.userAvatar ? `<img src="${msg.userAvatar}" class="message-avatar" alt="${msg.userName}">` : '<i class="fas fa-user-circle"></i>';
+    div.innerHTML = `
+        <div class="message-name">
+            ${avatarHtml}
+            <span>${escapeHtml(msg.userName)}</span>
+            <span class="message-time">${time}</span>
+        </div>
+        <div class="message-text">${escapeHtml(msg.message)}</div>
+    `;
     chatMessagesContainer.appendChild(div);
-    div.scrollIntoView();
+    div.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
 function addSystemMessageToChat(msg) {
     if (!chatMessagesContainer) return;
     const div = document.createElement('div');
-    div.style.cssText = 'background:#fef5e7; color:#d69e2e; padding:8px; border-radius:12px; text-align:center; margin:8px 0;';
+    div.className = 'system-message';
     div.innerHTML = msg;
     chatMessagesContainer.appendChild(div);
-    div.scrollIntoView();
+    div.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
 function sendChatMessage() {
     const msg = chatInputField?.value.trim();
     if (!msg) return;
     if (!socket || !socket.connected) {
-        toast('Not connected to server');
+        toast('Not connected to server', 'error');
         return;
     }
     socket.emit('chat-message', msg);
     chatInputField.value = '';
 }
 
-// Wire up chat
 if (sendChatBtn) sendChatBtn.onclick = sendChatMessage;
 if (chatInputField) chatInputField.onkeypress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
 
-// ============ TIMER ============
+// Timer
 function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
@@ -758,7 +1078,7 @@ function startTimer() {
         if (remaining <= 0) {
             clearInterval(timerInterval);
             document.getElementById('timerDisplay').textContent = '0:00:00';
-            toast('Session ended!');
+            toast('Session ended!', 'warning');
             setTimeout(() => location.reload(), 3000);
             return;
         }
@@ -769,7 +1089,7 @@ function startTimer() {
     }, 1000);
 }
 
-// ============ SOCKET ============
+// Socket
 function initSocket() {
     socket = io({
         reconnection: true,
@@ -783,16 +1103,20 @@ function initSocket() {
         console.log('Socket connected');
         socket.emit('login', currentUser);
         startHeartbeat();
+        toast('Connected to server', 'success');
     });
     
     socket.on('disconnect', () => {
         console.log('Socket disconnected');
-        toast('Connection lost, reconnecting...');
+        toast('Connection lost, reconnecting...', 'warning');
     });
     
     socket.on('reconnect', () => {
         console.log('Socket reconnected');
-        toast('Reconnected!');
+        toast('Reconnected!', 'success');
+        if (currentUser) {
+            socket.emit('login', currentUser);
+        }
         if (currentRoomId) {
             socket.emit('join-room', currentRoomId);
         }
@@ -811,8 +1135,11 @@ function initSocket() {
         initCanvas();
         setupTools();
         setupCalculator();
+        setupShapeTools();
+        setupTemplates();
+        setupMathSolver();
         initCollapse();
-        toast(`Room created: ${data.roomId}`);
+        toast(`Room created: ${data.roomId}`, 'success');
     });
     
     socket.on('room-joined', (data) => {
@@ -824,13 +1151,16 @@ function initSocket() {
         initCanvas();
         setupTools();
         setupCalculator();
+        setupShapeTools();
+        setupTemplates();
+        setupMathSolver();
         initCollapse();
         if (data.drawings) data.drawings.forEach(d => drawRemote(d));
         if (data.messages) data.messages.forEach(m => addMessageToChat(m));
         if (data.currentPdf) loadPDFFromData(data.currentPdf);
         const countEl = document.getElementById('chatParticipantCount');
         if (countEl) countEl.textContent = data.participantsCount || 1;
-        toast(`Joined room: ${data.roomId}`);
+        toast(`Joined room: ${data.roomId}`, 'success');
     });
     
     socket.on('draw', drawRemote);
@@ -838,15 +1168,15 @@ function initSocket() {
     socket.on('chat-message', (msg) => addMessageToChat(msg));
     socket.on('draw-shape', (data) => drawShape(data.shape, data.x1, data.y1, data.x2, data.y2));
     socket.on('user-joined', (u) => {
-        addSystemMessageToChat(`${u.name} joined`);
+        addSystemMessageToChat(`<i class="fas fa-user-plus"></i> ${u.name} joined the session`);
         const countEl = document.getElementById('chatParticipantCount');
         if (countEl) {
             let count = parseInt(countEl.textContent) || 1;
             countEl.textContent = count + 1;
         }
     });
-    socket.on('user-left', () => {
-        addSystemMessageToChat(`User left`);
+    socket.on('user-left', (data) => {
+        addSystemMessageToChat(`<i class="fas fa-user-minus"></i> ${data.name || 'A user'} left`);
         const countEl = document.getElementById('chatParticipantCount');
         if (countEl) {
             let count = parseInt(countEl.textContent) || 2;
@@ -861,10 +1191,10 @@ function initSocket() {
             renderPDFPage();
         }
     });
-    socket.on('error', (e) => toast(e));
+    socket.on('error', (e) => toast(e, 'error'));
 }
 
-// ============ MOBILE ============
+// Mobile
 let sidebarOpen = false, chatOpen = false;
 function initMobile() {
     const menuBtn = document.getElementById('menuBtn');
@@ -918,6 +1248,50 @@ window.addEventListener('resize', () => {
     }
 });
 
+// Cursor trail effect for desktop
+function addCursorEffect() {
+    if (window.innerWidth > 768) {
+        const trail = document.createElement('div');
+        trail.style.cssText = `
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        document.body.appendChild(trail);
+        
+        document.addEventListener('mousemove', (e) => {
+            trail.style.left = e.clientX - 4 + 'px';
+            trail.style.top = e.clientY - 4 + 'px';
+            trail.style.opacity = '0.5';
+            
+            clearTimeout(window.cursorTimeout);
+            window.cursorTimeout = setTimeout(() => {
+                trail.style.opacity = '0';
+            }, 500);
+        });
+    }
+}
+
+
+// Fix chat button text if missing
+document.addEventListener('DOMContentLoaded', () => {
+    const sendBtn = document.getElementById('sendChatBtn');
+    if (sendBtn && sendBtn.innerHTML.trim() === '<i class="fas fa-paper-plane"></i>') {
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+    }
+});
+
+
+
+// Initialize everything
 initMobile();
+initMobileChatToggle();
+addCursorEffect();
 setupCalculator();
-console.log('MathsBoard Pro - Ready');
+console.log('MathsBoard Pro - Ready with Enhanced UX');

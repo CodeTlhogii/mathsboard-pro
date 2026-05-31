@@ -7,20 +7,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#667eea">
     
-    <!-- SEO Meta Tags -->
     <title>MathsBoard Pro | Collaborative Whiteboard for Math Tutoring with Prof. Tlhogii</title>
-    <meta name="description" content="Professional collaborative whiteboard for math tutoring. Real-time drawing, PDF annotation, scientific calculator, and chat. Perfect for online math education.">
+    <meta name="description" content="Professional collaborative whiteboard for math tutoring. Real-time drawing, PDF annotation, scientific calculator, and chat.">
     <meta name="keywords" content="math whiteboard, online tutoring, collaborative whiteboard, math education, digital classroom, PDF annotation, scientific calculator">
     <meta name="author" content="MathsBoard Pro">
     <meta name="robots" content="index, follow">
     
-    <!-- Open Graph / Social Media -->
     <meta property="og:title" content="MathsBoard Pro - Collaborative Math Whiteboard">
     <meta property="og:description" content="Real-time collaborative whiteboard for math tutoring with PDF annotation, calculator, and chat.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://mathsboardpro.onrender.com">
     
-    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23667eea' rx='20'/%3E%3Ctext x='50' y='72' font-size='60' text-anchor='middle' fill='white' font-family='Arial'%3E📐%3C/text%3E%3C/svg%3E">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -56,6 +53,7 @@
             z-index: 100;
             overflow-y: auto;
             padding: 20px;
+            animation: fadeIn 0.3s ease;
         }
         
         /* Glassmorphism Card */
@@ -69,6 +67,7 @@
             text-align: center;
             box-shadow: 0 25px 45px rgba(0,0,0,0.2);
             border: 1px solid rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
         }
         
         .glass-card h1 {
@@ -95,7 +94,7 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: 600;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
         
         .auth-tab.active {
@@ -109,6 +108,7 @@
         
         .auth-form.active {
             display: block;
+            animation: fadeInUp 0.3s ease;
         }
         
         .glass-card input {
@@ -119,12 +119,19 @@
             border-radius: 50px;
             font-size: 16px;
             background: rgba(255,255,255,0.9);
+            transition: all 0.2s ease;
+        }
+        
+        .glass-card input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
         }
         
         .glass-card button {
             width: 100%;
             padding: 14px;
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
             border-radius: 50px;
@@ -132,7 +139,12 @@
             cursor: pointer;
             margin-top: 10px;
             font-weight: 600;
-            transition: transform 0.1s;
+            transition: all 0.2s ease;
+        }
+        
+        .glass-card button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
         }
         
         .glass-card button:active {
@@ -158,9 +170,9 @@
             background: linear-gradient(135deg, rgba(0,0,0,0.6), rgba(0,0,0,0.7));
             z-index: 100;
             padding: 20px;
+            animation: fadeIn 0.3s ease;
         }
         
-        /* Join Card - Glassmorphism */
         .join-card {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
@@ -173,7 +185,6 @@
             box-shadow: 0 25px 45px rgba(0,0,0,0.2);
         }
         
-        /* User Info Bar */
         .user-info-bar {
             display: flex;
             align-items: center;
@@ -220,7 +231,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
         
         .exit-btn:hover {
@@ -261,7 +272,7 @@
             border-radius: 50px;
             font-size: 14px;
             background: rgba(255,255,255,0.9);
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
         
         .input-wrapper input:focus {
@@ -282,7 +293,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             white-space: nowrap;
         }
         
@@ -319,7 +330,7 @@
         }
         
         .create-action-btn {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             border: none;
             padding: 14px 20px;
             border-radius: 50px;
@@ -332,12 +343,12 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
         
         .create-action-btn:hover {
-            background: #5a67d8;
             transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
         }
         
         /* Board Container */
@@ -347,9 +358,9 @@
             height: 100vh;
             width: 100%;
             background: #1a1a2e;
+            animation: fadeIn 0.3s ease;
         }
         
-        /* Top Bar Glass */
         .top-bar {
             background: rgba(15, 15, 26, 0.95);
             backdrop-filter: blur(10px);
@@ -390,6 +401,12 @@
             color: white;
             cursor: pointer;
             font-size: 13px;
+            transition: all 0.2s ease;
+        }
+        
+        .leave-btn:hover {
+            background: #e53e3e;
+            transform: scale(1.02);
         }
         
         .main-content {
@@ -402,12 +419,12 @@
         /* Sidebar Glass */
         .sidebar {
             width: 280px;
-            background: rgba(35, 35, 50, 0.9);
+            background: rgba(35, 35, 50, 0.95);
             backdrop-filter: blur(12px);
             padding: 16px;
             overflow-y: auto;
             border-right: 1px solid rgba(255,255,255,0.1);
-            transition: width 0.3s ease;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             display: flex;
             flex-direction: column;
@@ -459,11 +476,12 @@
             justify-content: center;
             gap: 8px;
             font-size: 13px;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
         
         .collapse-btn:hover {
             background: #5a67d8;
+            transform: translateY(-2px);
         }
         
         .sidebar.collapsed .collapse-btn span {
@@ -499,7 +517,11 @@
             border-radius: 50%;
             cursor: pointer;
             border: 2px solid rgba(255,255,255,0.5);
-            transition: all 0.1s;
+            transition: all 0.2s ease;
+        }
+        
+        .color:hover {
+            transform: scale(1.1);
         }
         
         .color.active {
@@ -522,14 +544,28 @@
             justify-content: center;
             gap: 8px;
             font-size: 13px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .tool-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+        }
+        
+        .tool-btn:active {
+            transform: translateY(0);
         }
         
         .tool-btn.active {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
         }
         
         .tool-btn.danger {
             background: #e53e3e;
+        }
+        
+        .tool-btn.danger:hover {
+            background: #c53030;
         }
         
         .slider {
@@ -556,86 +592,178 @@
             background: white;
             cursor: crosshair;
             display: block;
-            margin: 0 auto;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.05);
         }
         
-        /* Chat Panel Glass */
+        /* Chat Panel - Fixed Spacing */
         .chat-panel {
-            width: 280px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            width: 320px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
             display: flex;
             flex-direction: column;
-            border-left: 1px solid rgba(255, 255, 255, 0.2);
+            border-left: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.05);
+            height: 100vh;
+            overflow: hidden;
         }
         
         .chat-header {
-            padding: 14px;
-            background: rgba(247,247,247,0.9);
-            font-weight: bold;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
         }
         
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 12px;
-            font-size: 13px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 0;
+        }
+        
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
         }
         
         .message {
-            margin-bottom: 12px;
-            padding: 8px 12px;
-            border-radius: 16px;
-            background: rgba(240,240,240,0.9);
+            padding: 10px 14px;
+            border-radius: 18px;
             max-width: 85%;
             word-wrap: break-word;
+            animation: fadeInUp 0.2s ease;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         
         .message.own {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message:not(.own) {
+            background: rgba(102, 126, 234, 0.1);
+            color: #333;
+            border-bottom-left-radius: 4px;
         }
         
         .message-name {
-            font-weight: bold;
+            font-weight: 700;
             font-size: 11px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .message-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
         }
         
         .message-time {
             font-size: 9px;
-            opacity: 0.7;
-            margin-left: 6px;
+            opacity: 0.6;
+            margin-left: auto;
+        }
+        
+        .message-text {
+            font-size: 13px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        
+        .system-message {
+            background: linear-gradient(135deg, #fef5e7, #fff5e6);
+            color: #d69e2e;
+            padding: 10px 14px;
+            border-radius: 18px;
+            text-align: center;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            animation: fadeInUp 0.2s ease;
         }
         
         .chat-input-area {
+            padding: 16px 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
             display: flex;
-            padding: 12px;
-            gap: 8px;
-            border-top: 1px solid rgba(0,0,0,0.1);
+            gap: 12px;
+            background: white;
+            flex-shrink: 0;
         }
         
         .chat-input-area input {
             flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
+            padding: 12px 16px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
             border-radius: 30px;
             outline: none;
-            font-size: 14px;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .chat-input-area input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
         }
         
         .chat-input-area button {
-            padding: 10px 18px;
-            background: #667eea;
+            padding: 0 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
             border-radius: 30px;
             cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+        
+        .chat-input-area button:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
         
         /* Scientific Calculator Glass */
@@ -674,9 +802,11 @@
             cursor: pointer;
             font-size: 11px;
             border: none;
+            transition: all 0.1s ease;
         }
         
         .calc-key:active { transform: scale(0.95); }
+        .calc-key:hover { transform: translateY(-1px); }
         .calc-key.operator { background: #e67e22; }
         .calc-key.equals { background: #27ae60; }
         .calc-key.clear { background: #e53e3e; }
@@ -695,6 +825,108 @@
             font-size: 13px;
             z-index: 1000;
             white-space: nowrap;
+            animation: slideUp 0.3s ease;
+            transition: all 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        
+        /* Math Tools Grid */
+        .math-tools-grid, .templates-grid, .table-controls, .angle-controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .math-tool, .template-btn, .table-btn, .angle-btn {
+            background: rgba(58, 58, 74, 0.8);
+            font-size: 12px;
+            padding: 8px;
+            margin: 0;
+        }
+        
+        .math-tool:hover, .template-btn:hover, .table-btn:hover, .angle-btn:hover {
+            background: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        /* Math Solver Bar */
+        .math-solver-bar {
+            background: rgba(15, 15, 26, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+        
+        .solver-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .solver-container i {
+            color: #667eea;
+            font-size: 20px;
+        }
+        
+        #mathInput {
+            flex: 1;
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 30px;
+            color: white;
+            font-size: 14px;
+            font-family: monospace;
+        }
+        
+        #mathInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .solver-btn, .insert-btn {
+            background: #667eea;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 30px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+        
+        .solver-btn:hover, .insert-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        .math-result {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 14px;
+            color: #00ff00;
+            display: none;
+        }
+        
+        .math-result.show {
+            display: block;
+            animation: fadeInUp 0.2s ease;
         }
         
         /* Mobile Chat Toggle Button */
@@ -704,7 +936,7 @@
             right: 20px;
             width: 50px;
             height: 50px;
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             border-radius: 50%;
             display: none;
             align-items: center;
@@ -715,7 +947,11 @@
             z-index: 210;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             border: none;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
+        }
+        
+        .mobile-chat-toggle:hover {
+            transform: scale(1.05);
         }
         
         .mobile-chat-toggle.hidden {
@@ -738,126 +974,6 @@
             display: none;
         }
         
-
-
-
-           /* Math Tools Grid */
-.math-tools-grid, .templates-grid, .table-controls, .angle-controls {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.math-tool, .template-btn, .table-btn, .angle-btn {
-    background: rgba(58, 58, 74, 0.8);
-    font-size: 12px;
-    padding: 8px;
-    margin: 0;
-}
-
-.math-tool:hover, .template-btn:hover, .table-btn:hover, .angle-btn:hover {
-    background: #667eea;
-}
-
-/* Precision writing mode */
-.precision-mode {
-    cursor: crosshair;
-}
-
-/* Shape drawing mode */
-.shape-drawing {
-    cursor: crosshair;
-}
-
-/* Ruler overlay */
-.ruler-overlay {
-    position: absolute;
-    border: 2px solid #ff0000;
-    pointer-events: none;
-    z-index: 100;
-}
-
-/* Protractor overlay */
-.protractor-overlay {
-    position: absolute;
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    border: 2px solid #ff0000;
-    pointer-events: none;
-    z-index: 100;
-}
-
-
-
-
-    /* Math Solver Bar */
-.math-solver-bar {
-    background: rgba(15, 15, 26, 0.95);
-    backdrop-filter: blur(10px);
-    padding: 8px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    position: relative;
-}
-
-.solver-container {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.solver-container i {
-    color: #667eea;
-    font-size: 20px;
-}
-
-#mathInput {
-    flex: 1;
-    padding: 10px 16px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 30px;
-    color: white;
-    font-size: 14px;
-    font-family: monospace;
-}
-
-#mathInput:focus {
-    outline: none;
-    border-color: #667eea;
-}
-
-.solver-btn, .insert-btn {
-    background: #667eea;
-    border: none;
-    padding: 8px 20px;
-    border-radius: 30px;
-    color: white;
-    cursor: pointer;
-    font-size: 13px;
-}
-
-.solver-btn:hover, .insert-btn:hover {
-    background: #5a67d8;
-}
-
-.math-result {
-    margin-top: 8px;
-    padding: 8px 12px;
-    background: rgba(0,0,0,0.3);
-    border-radius: 20px;
-    font-family: monospace;
-    font-size: 14px;
-    color: #00ff00;
-    display: none;
-}
-
-.math-result.show {
-    display: block;
-}
-
         /* Mobile */
         @media (max-width: 768px) {
             .sidebar .tool-btn i,
@@ -969,86 +1085,9 @@
                 max-width: calc(100% - 40px);
             }
             
-            .user-info-bar {
-                gap: 12px;
-            }
-            
-            .avatar {
-                width: 45px;
-                height: 45px;
-            }
-            
-            .user-name {
-                font-size: 14px;
-            }
-            
-            .user-email {
-                font-size: 11px;
-            }
-            
-            .exit-btn {
-                padding: 6px 12px;
-                font-size: 12px;
-            }
-            
-            .input-wrapper {
-                flex-direction: column;
-            }
-            
-            .input-wrapper input {
-                width: 100%;
-                padding: 12px 16px;
-            }
-            
-            .join-action-btn {
-                width: 100%;
-                justify-content: center;
-                padding: 12px 20px;
-            }
-            
-            .section-label {
-                font-size: 12px;
-            }
-            
-            .create-action-btn {
-                padding: 12px 20px;
-            }
-            
             .canvas-container {
                 overflow: auto !important;
                 -webkit-overflow-scrolling: touch;
-            }
-            
-            #mainCanvas {
-                cursor: grab;
-            }
-            
-            #mainCanvas:active {
-                cursor: grabbing;
-            }
-            
-            .canvas-container::-webkit-scrollbar {
-                width: 6px;
-                height: 6px;
-            }
-            
-            .canvas-container::-webkit-scrollbar-track {
-                background: #f1f1f1;
-                border-radius: 4px;
-            }
-            
-            .canvas-container::-webkit-scrollbar-thumb {
-                background: #888;
-                border-radius: 4px;
-            }
-        }
-        
-        @media (orientation: landscape) and (max-width: 900px) {
-            .canvas-container {
-                height: calc(100vh - 50px);
-            }
-            .chat-panel {
-                width: 300px;
             }
         }
         
@@ -1080,6 +1119,97 @@
             }
         }
         
+
+
+               /* Chat Input Area - Fixed Layout */
+        .chat-input-area {
+            padding: 16px 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+            display: flex;
+            gap: 12px;
+            background: white;
+            flex-shrink: 0;
+            align-items: center;
+        }
+        
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 30px;
+            outline: none;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .chat-input-area input:focus {
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .chat-input-area button {
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .chat-input-area button i {
+            font-size: 18px;
+            margin: 0;
+        }
+        
+        .chat-input-area button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+        
+        .chat-input-area button:active {
+            transform: scale(0.95);
+        }
+        /* ============ FIX: Collapse Button Layout ============ */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        
+        #collapseBtn {
+            margin-top: auto;
+            margin-bottom: 10px;
+        }
+        
+        /* Make sure chat panel takes full height */
+        .chat-panel {
+            height: 100%;
+            max-height: 100vh;
+        }
+        
+        /* Ensure button text is visible */
+        #sendChatBtn {
+            min-width: 70px;
+        }
+        
+        #sendChatBtn i {
+            margin-right: 5px;
+        }
+
+
+
+
+
         @keyframes fadeOut {
             0% { opacity: 1; }
             70% { opacity: 1; }
@@ -1088,20 +1218,15 @@
     </style>
 </head>
 <body>
-    <!-- ========================================== -->
-    <!-- MOBILE DEVICE BLOCK - DESKTOP ONLY        -->
-    <!-- ========================================== -->
+    <!-- MOBILE DEVICE BLOCK - DESKTOP ONLY -->
     <script>
         (function() {
-            // Check for mobile devices
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             const isTablet = /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent);
             
             if (isMobile || isTablet) {
-                // Store the attempted URL
                 localStorage.setItem('attemptedUrl', window.location.href);
                 
-                // Replace entire page with block message
                 document.body.innerHTML = `
                     <div style="
                         position: fixed;
@@ -1127,20 +1252,14 @@
                             box-shadow: 0 25px 45px rgba(0,0,0,0.2);
                             border: 1px solid rgba(255,255,255,0.3);
                         ">
-                            <div style="font-size: 80px; margin-bottom: 20px;">
-                                💻
-                            </div>
-                            <h1 style="color: #667eea; margin-bottom: 16px; font-size: 28px;">
-                                Desktop Required
-                            </h1>
+                            <div style="font-size: 80px; margin-bottom: 20px;">💻</div>
+                            <h1 style="color: #667eea; margin-bottom: 16px; font-size: 28px;">Desktop Required</h1>
                             <p style="color: #333; margin-bottom: 24px; line-height: 1.5; font-size: 16px;">
                                 MathsBoard Pro is optimized for desktop computers.<br><br>
                                 Please open this site on a <strong>laptop or desktop computer</strong> for the complete experience.
                             </p>
                             <div style="background: #f0f0f0; border-radius: 16px; padding: 16px; margin-bottom: 24px;">
-                                <p style="color: #666; font-size: 14px; margin-bottom: 8px;">
-                                    📐 Desktop features:
-                                </p>
+                                <p style="color: #666; font-size: 14px; margin-bottom: 8px;">📐 Desktop features:</p>
                                 <p style="color: #333; font-size: 13px;">
                                     ✓ Full whiteboard drawing<br>
                                     ✓ PDF annotation with page navigation<br>
@@ -1160,7 +1279,6 @@
                                 cursor: pointer;
                                 width: 100%;
                                 margin-bottom: 12px;
-                                transition: transform 0.1s;
                             ">📋 Copy Link to Share</button>
                             <button id="refreshBtn" style="
                                 background: transparent;
@@ -1176,7 +1294,6 @@
                     </div>
                 `;
                 
-                // Copy link functionality
                 const copyBtn = document.getElementById('copyUrlBtn');
                 if (copyBtn) {
                     copyBtn.addEventListener('click', () => {
@@ -1185,7 +1302,6 @@
                     });
                 }
                 
-                // Reload button (in case user switches to desktop user agent)
                 const reloadBtn = document.getElementById('refreshBtn');
                 if (reloadBtn) {
                     reloadBtn.addEventListener('click', () => {
@@ -1194,14 +1310,10 @@
                     });
                 }
                 
-                // Stop further execution
                 throw new Error('Mobile device blocked - desktop only');
             }
         })();
     </script>
-    <!-- ========================================== -->
-    <!-- END MOBILE DEVICE BLOCK                    -->
-    <!-- ========================================== -->
 
     <!-- Auth Container -->
     <div id="authContainer" class="auth-container">
@@ -1212,7 +1324,6 @@
                 <button id="registerTab" class="auth-tab">Sign Up</button>
             </div>
             
-            <!-- Login Form -->
             <div id="loginForm" class="auth-form active">
                 <input type="email" id="loginEmail" placeholder="Email address">
                 <input type="password" id="loginPassword" placeholder="Password">
@@ -1220,7 +1331,6 @@
                 <div id="loginError" class="error-msg"></div>
             </div>
             
-            <!-- Register Form -->
             <div id="registerForm" class="auth-form">
                 <input type="email" id="regEmail" placeholder="Email address">
                 <input type="text" id="regUsername" placeholder="Username">
@@ -1236,7 +1346,6 @@
     <!-- Join Screen -->
     <div id="joinContainer" class="join-container">
         <div class="join-card">
-            <!-- User Info Bar -->
             <div class="user-info-bar">
                 <img id="userAvatar" class="avatar" alt="Avatar">
                 <div class="user-details">
@@ -1248,7 +1357,6 @@
             
             <div class="join-divider"></div>
             
-            <!-- Join Section -->
             <div class="join-section">
                 <div class="section-label">
                     <i class="fas fa-door-open"></i> Join Existing Session
@@ -1265,7 +1373,6 @@
                 <span>or</span>
             </div>
             
-            <!-- Create Section -->
             <div class="create-section">
                 <div class="section-label">
                     <i class="fas fa-plus-circle"></i> Start New Session
@@ -1294,19 +1401,15 @@
             <button id="leaveBtn" class="leave-btn"><i class="fas fa-sign-out-alt"></i> Leave</button>
         </div>
         
-
-          <!-- Math Solver Bar -->
-<div class="math-solver-bar" id="mathSolverBar">
-    <div class="solver-container">
-        <i class="fas fa-calculator"></i>
-        <input type="text" id="mathInput" placeholder="Type math expression then click Solve (e.g., 2+2, 5*3, sqrt(16), sin(30))">
-        <button id="solveMathBtn" class="solver-btn">Solve</button>
-        <button id="insertAnswerBtn" class="insert-btn">📋 Insert on Board</button>
-    </div>
-    <div id="mathResult" class="math-result"></div>
-</div>
-
-
+        <div class="math-solver-bar" id="mathSolverBar">
+            <div class="solver-container">
+                <i class="fas fa-calculator"></i>
+                <input type="text" id="mathInput" placeholder="Type math expression then click Solve (e.g., 2+2, 5*3, sqrt(16), sin(30))">
+                <button id="solveMathBtn" class="solver-btn">Solve</button>
+                <button id="insertAnswerBtn" class="insert-btn">📋 Insert on Board</button>
+            </div>
+            <div id="mathResult" class="math-result"></div>
+        </div>
 
         <div class="main-content">
             <!-- Sidebar -->
@@ -1353,7 +1456,6 @@
                     <button id="removePdfBtn" class="tool-btn danger" style="margin-top:8px;"><i class="fas fa-trash-alt"></i> <span>Remove</span></button>
                 </div>
                 
-                <!-- Scientific Calculator -->
                 <div>
                     <div class="section-title"><i class="fas fa-calculator"></i> <span>Calculator</span></div>
                     <div class="scientific-calculator">
@@ -1394,57 +1496,52 @@
                     </div>
                 </div>
                 
-
-
-                      <!-- Math Tools Section -->
-<div>
-    <div class="section-title"><i class="fas fa-chart-line"></i> <span>Math Tools</span></div>
-    <div class="math-tools-grid">
-        <button class="tool-btn math-tool" data-shape="circle">⚪ Circle</button>
-        <button class="tool-btn math-tool" data-shape="square">⬛ Square</button>
-        <button class="tool-btn math-tool" data-shape="triangle">▲ Triangle</button>
-        <button class="tool-btn math-tool" data-shape="rectangle">📏 Rectangle</button>
-        <button class="tool-btn math-tool" data-shape="line">📐 Line</button>
-        <button class="tool-btn math-tool" data-shape="arrow">➡️ Arrow</button>
-    </div>
-</div>
-
-<div>
-    <div class="section-title"><i class="fas fa-border-all"></i> <span>Grid & Templates</span></div>
-    <div class="templates-grid">
-        <button class="tool-btn template-btn" data-template="graph">📊 Graph Paper</button>
-        <button class="tool-btn template-btn" data-template="number-line">📏 Number Line</button>
-        <button class="tool-btn template-btn" data-template="coordinate">🎯 Coordinate Plane</button>
-        <button class="tool-btn template-btn" data-template="protractor">📐 Protractor</button>
-        <button class="tool-btn template-btn" data-template="ruler">📏 Ruler</button>
-        <button class="tool-btn template-btn" data-template="table">📋 Table Grid</button>
-    </div>
-</div>
-
-<div>
-    <div class="section-title"><i class="fas fa-table"></i> <span>Tables & Matrices</span></div>
-    <div class="table-controls">
-        <button class="tool-btn table-btn" data-table="matrix-2x2">2x2 Matrix</button>
-        <button class="tool-btn table-btn" data-table="matrix-3x3">3x3 Matrix</button>
-        <button class="tool-btn table-btn" data-table="function-table">Function Table</button>
-        <button class="tool-btn table-btn" data-table="data-table">Data Table</button>
-    </div>
-</div>
-
-<div>
-    <div class="section-title"><i class="fas fa-ruler-combined"></i> <span>Angles & Degrees</span></div>
-    <div class="angle-controls">
-        <button class="tool-btn angle-btn" data-angle="30">30° Angle</button>
-        <button class="tool-btn angle-btn" data-angle="45">45° Angle</button>
-        <button class="tool-btn angle-btn" data-angle="60">60° Angle</button>
-        <button class="tool-btn angle-btn" data-angle="90">90° Angle</button>
-        <button class="tool-btn angle-btn" data-angle="120">120° Angle</button>
-        <button class="tool-btn angle-btn" data-angle="180">180° Angle</button>
-    </div>
-</div>
-
-
-                <!-- Collapse Button at Bottom -->
+                <div>
+                    <div class="section-title"><i class="fas fa-chart-line"></i> <span>Math Tools</span></div>
+                    <div class="math-tools-grid">
+                        <button class="tool-btn math-tool" data-shape="circle">⚪ Circle</button>
+                        <button class="tool-btn math-tool" data-shape="square">⬛ Square</button>
+                        <button class="tool-btn math-tool" data-shape="triangle">▲ Triangle</button>
+                        <button class="tool-btn math-tool" data-shape="rectangle">📏 Rectangle</button>
+                        <button class="tool-btn math-tool" data-shape="line">📐 Line</button>
+                        <button class="tool-btn math-tool" data-shape="arrow">➡️ Arrow</button>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="section-title"><i class="fas fa-border-all"></i> <span>Grid & Templates</span></div>
+                    <div class="templates-grid">
+                        <button class="tool-btn template-btn" data-template="graph">📊 Graph Paper</button>
+                        <button class="tool-btn template-btn" data-template="number-line">📏 Number Line</button>
+                        <button class="tool-btn template-btn" data-template="coordinate">🎯 Coordinate Plane</button>
+                        <button class="tool-btn template-btn" data-template="protractor">📐 Protractor</button>
+                        <button class="tool-btn template-btn" data-template="ruler">📏 Ruler</button>
+                        <button class="tool-btn template-btn" data-template="table">📋 Table Grid</button>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="section-title"><i class="fas fa-table"></i> <span>Tables & Matrices</span></div>
+                    <div class="table-controls">
+                        <button class="tool-btn table-btn" data-table="matrix-2x2">2x2 Matrix</button>
+                        <button class="tool-btn table-btn" data-table="matrix-3x3">3x3 Matrix</button>
+                        <button class="tool-btn table-btn" data-table="function-table">Function Table</button>
+                        <button class="tool-btn table-btn" data-table="data-table">Data Table</button>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="section-title"><i class="fas fa-ruler-combined"></i> <span>Angles & Degrees</span></div>
+                    <div class="angle-controls">
+                        <button class="tool-btn angle-btn" data-angle="30">30° Angle</button>
+                        <button class="tool-btn angle-btn" data-angle="45">45° Angle</button>
+                        <button class="tool-btn angle-btn" data-angle="60">60° Angle</button>
+                        <button class="tool-btn angle-btn" data-angle="90">90° Angle</button>
+                        <button class="tool-btn angle-btn" data-angle="120">120° Angle</button>
+                        <button class="tool-btn angle-btn" data-angle="180">180° Angle</button>
+                    </div>
+                </div>
+                
                 <button id="collapseBtn" class="collapse-btn">
                     <i class="fas fa-chevron-left"></i>
                     <span>Collapse</span>
@@ -1459,18 +1556,25 @@
                 </div>
             </div>
             
-            <!-- Chat Panel -->
+            <!-- Chat Panel - Fixed -->
             <div class="chat-panel" id="chatPanel">
                 <div class="chat-header">
-                    <span><i class="fas fa-comments"></i> Chat</span>
-                    <span id="chatParticipantCount" style="font-size:11px; background:#667eea; padding:2px 8px; border-radius:20px;">0</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-comments" style="color: #667eea;"></i>
+                        <span style="font-weight: 600;">Chat</span>
+                    </div>
+                    <span id="chatParticipantCount" style="font-size:11px; background:#667eea; padding:4px 10px; border-radius:20px; color:white;">0</span>
                 </div>
                 <div class="chat-messages" id="chatMessages">
-                    <div style="background:#fef5e7; color:#d69e2e; padding:10px; border-radius:12px; text-align:center;">Welcome to MathsBoard Pro!</div>
+                    <div class="system-message">
+                        <i class="fas fa-chalkboard-teacher"></i> Welcome to MathsBoard Pro!
+                    </div>
                 </div>
                 <div class="chat-input-area">
-                    <input type="text" id="chatInput" placeholder="Type a message...">
-                    <button id="sendChatBtn"><i class="fas fa-paper-plane"></i></button>
+                    <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off">
+                    <button id="sendChatBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
                 </div>
             </div>
         </div>

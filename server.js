@@ -1,7 +1,9 @@
 const express = require('express');
+const path = require('path');
 const http = require('http');
 const socketIO = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,16 +16,31 @@ const io = socketIO(server, {
   pingInterval: 25000
 });
 
-app.use(express.static('public'));
+// ============ SERVE FROM 'public' FOLDER ============
+const publicPath = path.join(__dirname, 'public');
+console.log('📁 Serving static files from:', publicPath);
+
+// Check if index.html exists (only declare once)
+const indexPath = path.join(publicPath, 'index.html');
+if (fs.existsSync(indexPath)) {
+  console.log('✅ index.html found at:', indexPath);
+} else {
+  console.log('❌ index.html NOT found at:', indexPath);
+}
+
+app.use(express.static(publicPath));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.get('/', (req, res) => {
+  res.sendFile(indexPath);
+});
+
+// ============ AUTH ROUTES ============
 
 // Store users (in-memory)
 const users = new Map();
 
-// ============ AUTH ROUTES ============
-
-// Register
 app.post('/api/register', (req, res) => {
   const { email, username, password, name } = req.body;
   
@@ -52,7 +69,6 @@ app.post('/api/register', (req, res) => {
   res.json({ success: true, message: 'Registration successful!' });
 });
 
-// Login
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   
@@ -80,7 +96,6 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// Get all users (for debugging)
 app.get('/api/users', (req, res) => {
   const userList = Array.from(users.values()).map(u => ({ email: u.email, username: u.username, name: u.name }));
   res.json({ users: userList });
@@ -92,9 +107,7 @@ const rooms = new Map();
 io.on('connection', (socket) => {
   console.log('🟢 User connected:', socket.id);
 
-  // Heartbeat to keep connection alive
   socket.on('heartbeat', () => {
-    // Just respond to keep connection alive
     socket.emit('heartbeat');
   });
 
@@ -109,8 +122,11 @@ io.on('connection', (socket) => {
       startTime: Date.now(),
       participants: new Set(),
       drawings: [],
+      shapes: [],
       messages: [],
-      currentPdf: null
+      currentPdf: null,
+      createdBy: socket.user?.name || 'Unknown',
+      createdAt: new Date().toISOString()
     });
     socket.join(roomId);
     socket.roomId = roomId;
@@ -120,30 +136,41 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join-room', (roomId) => {
-    const room = rooms.get(roomId);
+    const cleanRoomId = roomId.trim().toLowerCase();
+    const room = rooms.get(cleanRoomId);
+    
+    console.log(`🔍 Join attempt: "${roomId}" -> cleaned: "${cleanRoomId}"`);
+    
     if (!room) {
-      socket.emit('error', 'Room not found');
+      socket.emit('error', `Room "${roomId}" not found`);
       return;
     }
     
-    // Leave previous room if any
     if (socket.roomId) {
       socket.leave(socket.roomId);
+      const oldRoom = rooms.get(socket.roomId);
+      if (oldRoom) {
+        oldRoom.participants.delete(socket.id);
+      }
     }
     
-    socket.join(roomId);
-    socket.roomId = roomId;
+    socket.join(cleanRoomId);
+    socket.roomId = cleanRoomId;
     room.participants.add(socket.id);
     
     socket.emit('room-joined', {
-      roomId,
+      roomId: cleanRoomId,
       drawings: room.drawings,
+      shapes: room.shapes || [],
       messages: room.messages || [],
       currentPdf: room.currentPdf,
       participantsCount: room.participants.size
     });
-    socket.to(roomId).emit('user-joined', { name: socket.user.name });
-    console.log(`🚪 ${socket.user?.name} joined ${roomId}`);
+    
+    socket.to(cleanRoomId).emit('user-joined', { 
+      name: socket.user?.name,
+      count: room.participants.size 
+    });
   });
 
   socket.on('draw', (data) => {
@@ -154,20 +181,29 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('draw-shape', (shapeData) => {
+    const room = rooms.get(socket.roomId);
+    if (room) {
+      room.shapes = room.shapes || [];
+      room.shapes.push(shapeData);
+      socket.to(socket.roomId).emit('draw-shape', shapeData);
+    }
+  });
+
   socket.on('clear-drawings', () => {
     const room = rooms.get(socket.roomId);
     if (room) {
       room.drawings = [];
+      room.shapes = [];
       io.to(socket.roomId).emit('clear-drawings');
     }
   });
 
   socket.on('chat-message', (msg) => {
-    const roomId = socket.roomId;
-    const room = rooms.get(roomId);
+    const room = rooms.get(socket.roomId);
     const user = socket.user;
     
-    if (room && user && roomId) {
+    if (room && user) {
       const messageData = {
         userId: socket.id,
         userName: user.name,
@@ -177,8 +213,7 @@ io.on('connection', (socket) => {
       };
       if (!room.messages) room.messages = [];
       room.messages.push(messageData);
-      io.to(roomId).emit('chat-message', messageData);
-      console.log(`💬 ${user.name}: ${msg}`);
+      io.to(socket.roomId).emit('chat-message', messageData);
     }
   });
 
@@ -208,12 +243,15 @@ io.on('connection', (socket) => {
       const room = rooms.get(socket.roomId);
       if (room) {
         room.participants.delete(socket.id);
-        socket.to(socket.roomId).emit('user-left', socket.id);
+        socket.to(socket.roomId).emit('user-left', { 
+          userId: socket.id,
+          name: socket.user?.name,
+          count: room.participants.size 
+        });
         
-        // Clean up empty rooms
         if (room.participants.size === 0) {
           rooms.delete(socket.roomId);
-          console.log(`🗑️ Room ${socket.roomId} deleted (empty)`);
+          console.log(`🗑️ Room ${socket.roomId} deleted`);
         }
       }
     }
@@ -223,9 +261,6 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`\n========================================`);
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 MathsBoard Pro running on http://localhost:${PORT}`);
   console.log(`========================================`);
-  console.log(`\n📝 Sign up with any email to create an account`);
-  console.log(`💬 Chat persistence: ON`);
-  console.log(`🔄 Heartbeat interval: 25 seconds`);
 });
